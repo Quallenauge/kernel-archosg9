@@ -41,13 +41,14 @@
 #include <video/dsscomp.h>
 #include <plat/dsscomp.h>
 #include "dsscomp.h"
+#include "../dss/dss.h"
 
 #include <linux/debugfs.h>
 
 static DECLARE_WAIT_QUEUE_HEAD(waitq);
 static DEFINE_MUTEX(wait_mtx);
 
-static u32 hwc_virt_to_phys(u32 arg)
+u32 hwc_virt_to_phys(u32 arg)
 {
 	pmd_t *pmd;
 	pte_t *ptep;
@@ -304,6 +305,7 @@ static long query_display(struct dsscomp_dev *cdev,
 		(dev->state == OMAP_DSS_DISPLAY_ACTIVE);
 	dis->overlays_available = 0;
 	dis->overlays_owned = 0;
+	dis->fclk = dispc_fclk_rate()/1000;
 #if 0
 	dis->s3d_info = dev->panel.s3d_info;
 #endif
@@ -344,6 +346,7 @@ static long query_display(struct dsscomp_dev *cdev,
 	if (dis->modedb_len && dev->driver->get_modedb)
 		dis->modedb_len = dev->driver->get_modedb(dev,
 			(struct fb_videomode *) dis->modedb, dis->modedb_len);
+	dis->support_underscan = (dev->panel.monspecs.misc & FB_MISC_UNDERSCAN)?1:0;
 	return 0;
 }
 
@@ -473,6 +476,57 @@ static long comp_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		r = copy_from_user(&u.sdis, ptr, sizeof(u.sdis)) ? :
 		    setup_display(cdev, &u.sdis);
 	}
+	case DSSCIOC_QUERY_TILER_BUDGET:
+	{
+		 unsigned int tilerBudget;
+		 r = dsscomp_gralloc_query_tiler_budget_ioctl(&tilerBudget) ? :
+				copy_to_user(ptr, &tilerBudget, sizeof(tilerBudget));
+		 break;
+	}
+	case DSSCIOC_USE_TILER_BUDGET:
+	{
+		break;
+	}
+	case DSSCIOC_ISR_START:
+	{
+		r = isr_start( cdev, ptr );
+		break;
+	}
+	case DSSCIOC_ISR_STOP:
+	{
+		r = isr_stop( cdev );
+		break;
+	}
+	case DSSCIOC_ISR_PUT: 
+	{
+		r = isr_put( cdev, ptr );
+		break;
+	}
+	case DSSCIOC_ISR_GET: 
+	{
+		r = isr_get( cdev, ptr );
+		break;
+	}
+	case DSSCIOC_ISR_REFTIME:
+	{
+		r = isr_reftime(cdev, ptr);
+		break;
+	}
+	case DSSCIOC_ISR_FLUSH: 
+	{
+		r = isr_flush( cdev );
+		break;	
+	}
+	case DSSCIOC_ISR_RESUME:
+	{
+		r = isr_resume( cdev );
+		break;
+	}
+	case DSSCIOC_ISR_SUSPEND:
+	{
+		r = isr_suspend( cdev );
+		break;
+	}
 	default:
 		r = -EINVAL;
 	}
@@ -485,10 +539,20 @@ static int comp_open(struct inode *inode, struct file *filp)
 	return 0;
 }
 
+static int comp_release(struct inode *inode, struct file *filp)
+{
+	struct miscdevice *dev = filp->private_data;
+	struct dsscomp_dev *cdev = container_of(dev, struct dsscomp_dev, dev);
+
+	isr_stop(cdev);
+	return 0;
+}
+
 static const struct file_operations comp_fops = {
 	.owner		= THIS_MODULE,
 	.open		= comp_open,
 	.unlocked_ioctl = comp_ioctl,
+	.release	= comp_release,
 };
 
 static int dsscomp_debug_show(struct seq_file *s, void *unused)

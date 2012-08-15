@@ -12,21 +12,16 @@
 #endif
 static bool blanked;
 
-#define NUM_TILER1D_SLOTS 2
-#define TILER1D_SLOT_SIZE (16 << 20)
-
-static struct tiler1d_slot {
-	struct list_head q;
+struct tiler1d_slot {
 	tiler_blk_handle slot;
+	struct list_head q;
 	u32 phys;
 	u32 size;
 	u32 *page_map;
-} slots[NUM_TILER1D_SLOTS];
-static struct list_head free_slots;
+};
+
 static struct dsscomp_dev *cdev;
 static DEFINE_MUTEX(mtx);
-static struct semaphore free_slots_sem =
-				__SEMAPHORE_INITIALIZER(free_slots_sem, 0);
 
 /* gralloc composition sync object */
 struct dsscomp_gralloc_t {
@@ -44,18 +39,55 @@ static LIST_HEAD(flip_queue);
 
 static u32 ovl_use_mask[MAX_MANAGERS];
 
-static void unpin_tiler_blocks(struct list_head *slots)
-{
-	struct tiler1d_slot *slot;
-
-	/* unpin any tiler memory */
-	list_for_each_entry(slot, slots, q) {
-		tiler_unpin_block(slot->slot);
-		up(&free_slots_sem);
+void allocate_tiler_1d_slot(struct tiler1d_slot **p_slots, int size) {
+	u32 phys;
+	struct tiler1d_slot *slots = *p_slots;
+	slots->slot =	tiler_alloc_block_area(TILFMT_PAGE, size << PAGE_SHIFT, 1, &phys, NULL);
+	if (IS_ERR_OR_NULL(slots->slot)) {
+		pr_err("could not allocate slot\n");
+		kfree(slots);
+		slots = NULL;
+		return;
 	}
+	slots->phys = phys;
+	slots->size = size;
+	slots->page_map = vmalloc(sizeof(slots->page_map) *
+				slots->size);
+	if (!slots->page_map) {
+		pr_err("could not allocate page_map\n");
+		tiler_free_block_area(slots->slot);
+		kfree(slots);
+		slots = NULL;
+		return;
+	}
+	INIT_LIST_HEAD(&slots->q);
+}
 
-	/* free tiler slots */
-	list_splice_init(slots, &free_slots);
+void free_tiler_1d_slot(struct tiler1d_slot *slots) {
+	if (slots == NULL) return;
+	if (slots->page_map) {
+		vfree(slots->page_map);
+		slots->page_map = NULL;
+	}
+	if (slots->slot) {
+		tiler_unpin_block(slots->slot);
+		tiler_free_block_area(slots->slot);
+		slots->slot = NULL;
+	}
+}
+
+void free_tiler_1d_slots(struct list_head *slots) {
+	struct tiler1d_slot *slot, *slot_;
+	LIST_HEAD(done);
+	/* unpin any tiler memory */
+	if (slots == NULL) return;
+	list_for_each_entry_safe(slot, slot_, slots, q) {
+		free_tiler_1d_slot(slot);
+		list_move_tail(&slot->q, &done);
+	}
+	list_for_each_entry_safe(slot, slot_, &done, q) {
+		kfree(slot);
+	}
 }
 
 static void dsscomp_gralloc_cb(void *data, int status)
@@ -70,7 +102,7 @@ static void dsscomp_gralloc_cb(void *data, int status)
 
 	if (status & DSS_COMPLETION_RELEASED) {
 		if (atomic_dec_and_test(&gsync->refs))
-			unpin_tiler_blocks(&gsync->slots);
+			free_tiler_1d_slots(&gsync->slots);
 
 		log_event(0, 0, gsync, "--refs=%d on %s",
 				atomic_read(&gsync->refs),
@@ -105,6 +137,12 @@ static void dsscomp_gralloc_cb(void *data, int status)
 			gsync->cb_fn(gsync->cb_arg, 1);
 		kfree(gsync);
 	}
+}
+
+int dsscomp_gralloc_query_tiler_budget_ioctl(int *budget)
+{
+	*budget = (128 * SZ_1M);
+	return 0;
 }
 
 /* This is just test code for now that does the setup + apply.
@@ -157,8 +195,6 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 	u32 ovl_new_use_mask[MAX_MANAGERS];
 	u32 mgr_set_mask = 0;
 	u32 ovl_set_mask = 0;
-	struct tiler1d_slot *slot = NULL;
-	u32 slot_used = 0;
 #ifdef CONFIG_DEBUG_FS
 	u32 ms = ktime_to_ms(ktime_get());
 #endif
@@ -281,7 +317,8 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 	for (i = 0; i < d->num_ovls; i++) {
 		struct dss2_ovl_info *oi = d->ovls + i;
 		u32 mgr_ix = oi->cfg.mgr_ix;
-		u32 size;
+		u32 size = 0;
+		struct tiler1d_slot* slot = NULL;
 
 		/* verify manager index */
 		if (mgr_ix >= d->num_mgrs) {
@@ -311,69 +348,34 @@ int dsscomp_gralloc_queue(struct dsscomp_setup_dispc_data *d,
 			oi->uv = d->ovls[j].uv;
 			goto skip_map1d;
 		} else if (oi->addressing == OMAP_DSS_BUFADDR_FB) {
-			/* get fb */
-			int fb_ix = (oi->ba >> 28);
-			int fb_uv_ix = (oi->uv >> 28);
-			struct fb_info *fbi = NULL, *fbi_uv = NULL;
-			size_t size = oi->cfg.height * oi->cfg.stride;
-			if (fb_ix >= num_registered_fb ||
-			    (oi->cfg.color_mode == OMAP_DSS_COLOR_NV12 &&
-			     fb_uv_ix >= num_registered_fb)) {
-				WARN(1, "display has no framebuffer");
-				goto skip_buffer;
-			}
-
-			fbi = fbi_uv = registered_fb[fb_ix];
-			if (oi->cfg.color_mode == OMAP_DSS_COLOR_NV12)
-				fbi_uv = registered_fb[fb_uv_ix];
-
-			if (size + oi->ba > fbi->fix.smem_len ||
-			    (oi->cfg.color_mode == OMAP_DSS_COLOR_NV12 &&
-			     (size >> 1) + oi->uv > fbi_uv->fix.smem_len)) {
-				WARN(1, "image outside of framebuffer memory");
-				goto skip_buffer;
-			}
-
-			oi->ba += fbi->fix.smem_start;
-			oi->uv += fbi_uv->fix.smem_start;
 			goto skip_map1d;
 		}
-
 		/* map non-TILER buffers to 1D */
 
 		/* skip 2D and disabled layers */
 		if (!pas[i] || !oi->cfg.enabled)
 			goto skip_map1d;
 
-		if (!slot) {
-			if (down_timeout(&free_slots_sem,
-						msecs_to_jiffies(100))) {
-				dev_warn(DEV(cdev), "could not obtain tiler slot");
-				goto skip_buffer;
-			}
-			mutex_lock(&mtx);
-			slot = list_first_entry(&free_slots, typeof(*slot), q);
-			list_move(&slot->q, &gsync->slots);
-			mutex_unlock(&mtx);
-		}
 
 		size = oi->cfg.stride * oi->cfg.height;
 		if (oi->cfg.color_mode == OMAP_DSS_COLOR_NV12)
 			size += size >> 2;
 		size = DIV_ROUND_UP(size, PAGE_SIZE);
 
-		if (slot_used + size > slot->size) {
-			dev_err(DEV(cdev), "tiler slot not big enough for frame %d + %d > %d",
-				slot_used, size, slot->size);
-			goto skip_buffer;
-		}
+		slot = (struct tiler1d_slot*)kzalloc(sizeof(struct tiler1d_slot), GFP_KERNEL);
+		if (slot != NULL)
+			allocate_tiler_1d_slot(&slot, size);
+		if (slot == NULL) goto skip_buffer;
 
 		/* "map" into TILER 1D - will happen after loop */
-		oi->ba = slot->phys + (slot_used << PAGE_SHIFT) +
-			(oi->ba & ~PAGE_MASK);
-		memcpy(slot->page_map + slot_used, pas[i]->mem,
+		oi->ba = slot->phys + (oi->ba & ~PAGE_MASK);
+		memcpy(slot->page_map, pas[i]->mem,
 		       sizeof(*slot->page_map) * size);
-		slot_used += size;
+
+		mutex_lock(&mtx);
+		list_move(&slot->q, &gsync->slots);
+		mutex_unlock(&mtx);
+
 		goto skip_map1d;
 
 skip_buffer:
@@ -389,17 +391,15 @@ skip_map1d:
 								oi->cfg.ix, r);
 		else
 			ovl_set_mask |= 1 << oi->cfg.ix;
-	}
 
-	if (slot && slot_used) {
-		r = tiler_pin_block(slot->slot, slot->page_map,
-						slot_used);
-		if (r)
-			dev_err(DEV(cdev), "failed to pin %d pages into"
-				" %d-pg slots (%d)\n", slot_used,
-				TILER1D_SLOT_SIZE >> PAGE_SHIFT, r);
+		if (slot) {
+		      r = tiler_pin_block(slot->slot, slot->page_map,
+						size);
+		      if (r)
+				dev_err(DEV(cdev), "failed to pin %d pages"
+					" (%d)\n", size, r);
+		}
 	}
-
 	for (ch = 0; ch < MAX_MANAGERS; ch++) {
 		/* disable all overlays not specifically set from prior frame */
 		u32 mask = ovl_use_mask[ch] & ~ovl_set_mask;
@@ -438,6 +438,7 @@ skip_comp:
 
 	return r;
 }
+EXPORT_SYMBOL(dsscomp_gralloc_queue);
 
 #ifdef CONFIG_EARLYSUSPEND
 static int blank_complete;
@@ -550,8 +551,6 @@ void dsscomp_dbg_gralloc(struct seq_file *s)
 
 void dsscomp_gralloc_init(struct dsscomp_dev *cdev_)
 {
-	int i;
-
 	/* save at least cdev pointer */
 	if (!cdev && cdev_) {
 		cdev = cdev_;
@@ -560,48 +559,11 @@ void dsscomp_gralloc_init(struct dsscomp_dev *cdev_)
 		register_early_suspend(&early_suspend_info);
 #endif
 	}
-
-	if (!free_slots.next) {
-		INIT_LIST_HEAD(&free_slots);
-		for (i = 0; i < NUM_TILER1D_SLOTS; i++) {
-			u32 phys;
-			tiler_blk_handle slot =
-				tiler_alloc_block_area(TILFMT_PAGE,
-					TILER1D_SLOT_SIZE, 1, &phys, NULL);
-			if (IS_ERR_OR_NULL(slot)) {
-				pr_err("could not allocate slot");
-				break;
-			}
-			slots[i].slot = slot;
-			slots[i].phys = phys;
-			slots[i].size = TILER1D_SLOT_SIZE >> PAGE_SHIFT;
-			slots[i].page_map = vmalloc(sizeof(*slots[i].page_map) *
-						slots[i].size);
-			if (!slots[i].page_map) {
-				pr_err("could not allocate page_map");
-				tiler_free_block_area(slot);
-				break;
-			}
-			list_add(&slots[i].q, &free_slots);
-			up(&free_slots_sem);
-		}
-		/* reset free_slots if no TILER memory could be reserved */
-		if (!i)
-			ZERO(free_slots);
-	}
 }
 
 void dsscomp_gralloc_exit(void)
 {
-	struct tiler1d_slot *slot;
-
 #ifdef CONFIG_HAS_EARLYSUSPEND
 	unregister_early_suspend(&early_suspend_info);
 #endif
-
-	list_for_each_entry(slot, &free_slots, q) {
-		vfree(slot->page_map);
-		tiler_free_block_area(slot->slot);
-	}
-	INIT_LIST_HEAD(&free_slots);
 }

@@ -423,6 +423,9 @@ void _dispc_setup_color_conv_coef(enum omap_plane plane,
 
 void dispc_set_plane_ba0(enum omap_plane plane, u32 paddr);
 void dispc_set_plane_ba1(enum omap_plane plane, u32 paddr);
+void dispc_enable_gamma_table(bool enable);
+void dispc_load_gamma_table(enum omap_channel channel, u32 *gamma_tab);
+void dispc_set_gamma_table(enum omap_channel channel, u32 *gamma_tab);
 void dispc_set_plane_pos(enum omap_plane plane, u16 x, u16 y);
 void dispc_set_plane_size(enum omap_plane plane, u16 width, u16 height);
 void dispc_set_channel_out(enum omap_plane plane,
@@ -463,6 +466,8 @@ void dispc_enable_replication(enum omap_plane plane, bool enable);
 void dispc_set_parallel_interface_mode(enum omap_channel channel,
 		enum omap_parallel_interface_mode mode);
 void dispc_set_tft_data_lines(enum omap_channel channel, u8 data_lines);
+void dispc_set_dither_mode(enum omap_channel channel, 
+		enum omap_dither_mode mode);
 void dispc_set_lcd_display_type(enum omap_channel channel,
 		enum omap_lcd_display_type type);
 void dispc_set_loadmode(enum omap_dss_load_mode mode);

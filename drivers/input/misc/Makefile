@@ -53,6 +53,10 @@ obj-$(CONFIG_INPUT_YEALINK)		+= yealink.o
 obj-$(CONFIG_INPUT_HMC5843)		+= hmc5843.o
 obj-$(CONFIG_INPUT_SFH7741)		+= sfh7741.o
 obj-$(CONFIG_INPUT_BMA180)		+= bma180.o
+obj-$(CONFIG_INPUT_MMA7660FC)		+= mma7660fc.o
+obj-$(CONFIG_INPUT_MMA8453Q)		+= mma8453q.o
+obj-$(CONFIG_INPUT_AK8975)		+= akm8975.o
+obj-$(CONFIG_SENSORS_MAG3110)		+= mag3110.o
 obj-$(CONFIG_INPUT_MPU3050)		+= mpu3050.o
 obj-$(CONFIG_INPUT_TSL2771)		+= tsl2771.o
 

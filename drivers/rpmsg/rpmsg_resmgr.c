@@ -214,7 +214,6 @@ static int rprm_auxclk_request(struct rprm_elem *e, struct rprm_auxclk *obj)
 	if (ret) {
 		pr_err("%s: rate not supported by %s\n", __func__,
 					clk_src_name[obj->parent_src_clk]);
-		ret = -EINVAL;
 		goto error_aux_src_parent;
 	}
 
@@ -236,7 +235,7 @@ static int rprm_auxclk_request(struct rprm_elem *e, struct rprm_auxclk *obj)
 	ret = clk_set_rate(acd->aux_clk, (obj->clk_rate * MHZ));
 	if (ret) {
 		pr_err("%s: rate not supported by %s\n", __func__, clk_name);
-		goto error_aux_src_parent;
+		goto error_aux_enable;
 	}
 
 	ret = clk_enable(acd->aux_clk);
@@ -443,10 +442,6 @@ static int rprm_i2c_request(struct rprm_elem *e, struct rprm_i2c *obj)
 	i2c_put_adapter(adapter);
 
 	ret = pm_runtime_get_sync(i2c_dev);
-	/*
-	 * pm_runtime_get_sync can return 1 in case it is already active,
-	 * change it to 0 to indicate success.
-	 */
 	ret -= ret == 1;
 	if (!ret)
 		e->handle = i2c_dev;

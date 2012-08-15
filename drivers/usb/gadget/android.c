@@ -27,6 +27,8 @@
 #include <linux/utsname.h>
 #include <linux/platform_device.h>
 
+#include <linux/string.h>
+
 #include <linux/usb/ch9.h>
 #include <linux/usb/composite.h>
 #include <linux/usb/gadget.h>
@@ -52,6 +54,7 @@
 #include "f_mtp.c"
 #include "f_accessory.c"
 #define USB_ETH_RNDIS y
+#include "f_ecm.c"
 #include "f_rndis.c"
 #include "rndis.c"
 #include "u_ether.c"
@@ -519,6 +522,36 @@ static struct android_usb_function rndis_function = {
 	.attributes	= rndis_function_attributes,
 };
 
+static struct rndis_function_config* rndis_get_function()
+{
+        struct android_dev *dev = _android_dev;
+        struct android_usb_function *f;
+        struct rndis_function_config *rndis = NULL;
+
+        list_for_each_entry(f, &dev->enabled_functions, enabled_list) {
+                if (strncmp(f->name, "rndis", 5) == 0) {
+                        rndis = f->config;
+                }
+        }
+        return rndis;
+}
+
+static int eth_function_bind_config(struct usb_configuration *c)
+{
+	struct rndis_function_config *rndis = rndis_get_function();
+        
+	if (rndis != NULL) {
+		return ecm_bind_config(c, rndis->ethaddr);	
+	}
+	return -EFAULT;
+}
+
+static struct usb_configuration eth_config_driver = {
+	/* .label = f(hardware) */
+	.bConfigurationValue    = 2,
+	/* .iConfiguration = DYNAMIC */
+	.bmAttributes           = USB_CONFIG_ATT_SELFPOWER,
+};
 
 struct mass_storage_function_config {
 	struct fsg_config fsg;
@@ -833,12 +866,22 @@ static ssize_t enable_store(struct device *pdev, struct device_attribute *attr,
 		cdev->desc.bDeviceProtocol = device_desc.bDeviceProtocol;
 		usb_add_config(cdev, &android_config_driver,
 					android_bind_config);
-		usb_gadget_connect(cdev->gadget);
+                if (rndis_get_function()) {
+                        device_desc.bNumConfigurations = 2;
+                        cdev->desc.bNumConfigurations = device_desc.bNumConfigurations; 
+			usb_add_config(cdev, &eth_config_driver, eth_function_bind_config);
+                }
+                usb_gadget_connect(cdev->gadget);
 		dev->enabled = true;
 	} else if (!enabled && dev->enabled) {
 		usb_gadget_disconnect(cdev->gadget);
 		/* Cancel pending control requests */
 		usb_ep_dequeue(cdev->gadget->ep0, cdev->req);
+                if (rndis_get_function()) {
+			 device_desc.bNumConfigurations = 1;
+                         cdev->desc.bNumConfigurations = device_desc.bNumConfigurations;
+                         usb_remove_config(cdev, &eth_config_driver);
+		}
 		usb_remove_config(cdev, &android_config_driver);
 		dev->enabled = false;
 	} else {

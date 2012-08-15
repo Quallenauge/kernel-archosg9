@@ -12,7 +12,7 @@ config ARCH_OMAP2PLUS_TYPICAL
 	select VFP
 	select NEON if ARCH_OMAP3 || ARCH_OMAP4
 	select SERIAL_OMAP
-	select SERIAL_OMAP_CONSOLE
+	#select SERIAL_OMAP_CONSOLE
 	select I2C
 	select I2C_OMAP
 	select MFD_SUPPORT
@@ -45,8 +45,8 @@ config ARCH_OMAP4
 	select CPU_V7
 	select ARM_GIC
 	select LOCAL_TIMERS if SMP
-	select PL310_ERRATA_588369 if CONFIG_CACHE_L2X0
-	select PL310_ERRATA_727915 if CONFIG_CACHE_L2X0
+	select PL310_ERRATA_588369 if CACHE_L2X0
+	select PL310_ERRATA_727915 if CACHE_L2X0
 	select ARM_ERRATA_720789
 	select ARCH_HAS_OPP
 	select PM_OPP if PM
@@ -368,6 +368,60 @@ config MACH_OMAP4_PANDA
 	select OMAP_REBOOT_REASON
 	select OMAP_RAM_CONSOLE
 
+config MACH_ARCHOS
+	bool 
+	default n
+	select OMAP_PACKAGE_CBS
+	select OMAP_PACKAGE_CBL
+	select REGULATOR_FIXED_VOLTAGE
+	select OMAP_TPS6236X
+	select OMAP_REBOOT_REASON
+	select TWL6030_POWEROFF
+	select INPUT_TWL6030_PWRBUTTON
+	select TWL6030_GPADC
+	select KEYBOARD_GPIO
+
+config MACH_ARCHOS_A80S
+	bool "Archos A80S board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config MACH_ARCHOS_A80H
+	bool "Archos A80H board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config MACH_ARCHOS_A101S
+	bool "Archos A101S board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+	
+config MACH_ARCHOS_A101H
+	bool "Archos A101H board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config ARCHOS_FORCE_CONSOLE_UART3
+	bool "Force kernel's console to UART3"
+	depends on MACH_ARCHOS
+	depends on ARCH_OMAP4
+	default n
+	help
+	  Force /dev/console to be redirected to UART3,
+	  even when bootloader says it's UART1.
+	  It's needed for GPS prodtest.
+
+config ARCHOS_UART3_ON_DPDM
+	bool "Configure DPDM balls to UART3 mux mode"
+	depends on MACH_ARCHOS
+	depends on ARCH_OMAP4
+	default n
+
+config CMDLINE_DEFAULT
+	string "Kernel command line for Archos G9 NAND based devices"
+	depends on MACH_ARCHOS
+	default ""
+
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"
 	depends on ARCH_OMAP3
@@ -436,6 +490,33 @@ config OMAP4_PPA_CPU1_ONLINE_BUG
 
 	  If, on the other hand, you do not understand the change, leave the
 	  default as enabled.
+
+config OMAP4_ARM_ERRATA_742230
+	bool "Enables the workaround for ARM errata 742230 on GP devices"
+	default y
+	help
+	  Enables the ARM errata 742230 on OMAP443x and OMAP446x (GP) devices.
+	  This involves setting bit 4 of the CP15 diagnostic control register.
+	  This is handled for HS devices in the PPA code and does not need to be
+	  enabled."
+
+config OMAP4_ARM_ERRATA_751472
+	bool "Enables the workaround for ARM errata 751472 on GP devices"
+	default y
+	help
+	  Enables the ARM errata 751472 on OMAP443x and OMAP446x (GP) devices.
+	  This involves setting bit 11 of the CP15 diagnostic control register.
+	  This is handled for HS devices in the PPA code and does not need to be
+	  enabled."
+
+config OMAP4_ARM_ERRATA_743622
+	bool "Enabled the workaround for ARM errata 743622 on GP devices"
+	default y
+	help
+	  Enables the workaround for ARM errata 743622 on OMAP4.
+	  This involves setting bit 6 of the CP15 diagnostic control register.
+	  This is handled for HS devices in the PPA code and does not need to be
+	  enabled."
 
 endmenu
 

@@ -753,7 +753,12 @@ static int rproc_add_mem_entry(struct rproc *rproc, struct fw_resource *rsc)
 		 * carveouts we don't care about in a core dump.
 		 * Perhaps the ION carveout should be reported as RSC_DEVMEM.
 		 */
+
+#ifdef CONFIG_ION_OMAP_DYNAMIC
+		me->core = (rsc->type == RSC_CARVEOUT && rsc->pa != 0x80000000);
+#else
 		me->core = (rsc->type == RSC_CARVEOUT && rsc->pa != 0xba300000);
+#endif
 #endif
 	}
 
@@ -790,7 +795,7 @@ static int rproc_check_poolmem(struct rproc *rproc, u32 size, phys_addr_t pa)
 	}
 
 	if (pa < pool->st_base || pa + size > pool->st_base + pool->st_size) {
-		pr_warn("section size does not fit within carveout memory\n");
+		pr_warn("section size does not fit within carveout memory pa=%p size=0x%x pool (pa=%p, size=%d)\n", pa, size, pool->st_base,pool->st_size);
 		return -ENOSPC;
 	}
 
@@ -875,6 +880,9 @@ static int rproc_handle_resources(struct rproc *rproc, struct fw_resource *rsc,
 				}
 				rsc->pa = pa;
 			} else {
+#ifdef CONFIG_ION_OMAP_DYNAMIC
+				if (strcmp(rsc->name, "IPU_MEM_IOBUFS") != 0)
+#endif
 				ret = rproc_check_poolmem(rproc, rsc->len, pa);
 				if (ret) {
 					dev_err(dev, "static memory for %s "
@@ -1418,7 +1426,7 @@ void rproc_last_busy(struct rproc *rproc)
 
 	mutex_lock(&rproc->pm_lock);
 	if (pm_runtime_suspended(dev) ||
-			!pm_runtime_autosuspend_expiration(dev)) {
+		!pm_runtime_autosuspend_expiration(dev)) {
 		pm_runtime_mark_last_busy(dev);
 		mutex_unlock(&rproc->pm_lock);
 		/*

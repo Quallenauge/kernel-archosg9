@@ -64,6 +64,12 @@ struct dsscomp_dev {
 	u32 num_displays;
 	struct omap_dss_device *displays[MAX_DISPLAYS];
 	struct notifier_block state_notifiers[MAX_DISPLAYS];
+
+	__u32 vsync_src;
+	__u32 vsync_cnt;
+	__u32 scale;
+	__u32 rate;
+	__u8 isr_registered;
 };
 
 extern int debug;
@@ -136,6 +142,8 @@ void dsscomp_gralloc_exit(void);
 int dsscomp_gralloc_queue_ioctl(struct dsscomp_setup_dispc_data *d);
 int dsscomp_wait(struct dsscomp_sync_obj *sync, enum dsscomp_wait_phase phase,
 								int timeout);
+int dsscomp_gralloc_query_tiler_budget_ioctl(int *budget);
+
 int dsscomp_state_notifier(struct notifier_block *nb,
 						unsigned long arg, void *ptr);
 
@@ -206,3 +214,15 @@ void __log_event(u32 ix, u32 ms, void *data, const char *fmt, u32 a1, u32 a2)
 	DO_IF_DEBUG_FS(__log_event(ix, ms, data, fmt, a1, a2))
 
 #endif
+
+/* 
+ * ISR queue functions
+ */
+long isr_start( struct dsscomp_dev *cdev, void __user *ptr );
+long isr_stop( struct dsscomp_dev *cdev );
+long isr_reftime( struct dsscomp_dev *cdev, void __user *ptr );
+long isr_put( struct dsscomp_dev *cdev, void __user *ptr );
+long isr_get( struct dsscomp_dev *cdev, void __user *ptr );
+long isr_flush( struct dsscomp_dev *cdev );
+long isr_resume( struct dsscomp_dev *cdev );
+long isr_suspend( struct dsscomp_dev *cdev );

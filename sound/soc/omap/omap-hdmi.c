@@ -35,6 +35,10 @@
 #include "omap-pcm.h"
 #include "omap-hdmi.h"
 
+#ifdef CONFIG_HDMI_TI_4XXX_ACRWA
+#include <../../../drivers/video/hdmi_ti_4xxx_ip.h>
+#endif
+
 #define DRV_NAME "hdmi-audio-dai"
 
 static struct omap_pcm_dma_data omap_hdmi_dai_dma_params = {
@@ -58,6 +62,16 @@ static int omap_hdmi_dai_startup(struct snd_pcm_substream *substream,
 	return 0;
 }
 
+
+#ifdef CONFIG_HDMI_TI_4XXX_ACRWA
+static void omap_hdmi_dai_shutdown(struct snd_pcm_substream *substream,
+				    struct snd_soc_dai *dai)
+{
+	hdmi_lib_stop_acr_wa();
+}
+#endif
+
+
 static int omap_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
 				    struct snd_pcm_hw_params *params,
 				    struct snd_soc_dai *dai)
@@ -80,12 +94,21 @@ static int omap_hdmi_dai_hw_params(struct snd_pcm_substream *substream,
 	snd_soc_dai_set_dma_data(dai, substream,
 				 &omap_hdmi_dai_dma_params);
 
+#ifdef CONFIG_HDMI_TI_4XXX_ACRWA
+	err = hdmi_lib_start_acr_wa();
+	if (err)
+		pr_warning("Failed to start ACR workaround[%d]]\n", err);
+#endif
+
 	return err;
 }
 
 static struct snd_soc_dai_ops omap_hdmi_dai_ops = {
 	.startup	= omap_hdmi_dai_startup,
 	.hw_params	= omap_hdmi_dai_hw_params,
+#ifdef CONFIG_HDMI_TI_4XXX_ACRWA
+	.shutdown	= omap_hdmi_dai_shutdown,
+#endif
 };
 
 static struct snd_soc_dai_driver omap_hdmi_dai = {

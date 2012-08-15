@@ -328,17 +328,35 @@ out:
 static int cpufreq_apply_cooling(struct thermal_dev *dev,
 				int cooling_level)
 {
-	if (cooling_level < current_cooling_level) {
-		pr_err("%s: Unthrottle cool level %i curr cool %i\n",
-			__func__, cooling_level, current_cooling_level);
-		omap_thermal_step_freq_up();
-	} else if (cooling_level > current_cooling_level) {
-		pr_err("%s: Throttle cool level %i curr cool %i\n",
-			__func__, cooling_level, current_cooling_level);
-		omap_thermal_step_freq_down();
+	/* cooling level 0 would be maximum speed */
+	unsigned int cool_freq = max_freq;
+	int i, j;
+
+	for(j=0; j<cooling_level; j++) {
+		unsigned int max = 0;
+		for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++) {
+			if (freq_table[i].frequency > max &&
+				freq_table[i].frequency < cool_freq)
+				max = freq_table[i].frequency;
+		}
+		if (!max)
+			break;
+		cool_freq = max;
+	}
+	pr_debug("%s: cool level %i curr cool %i set to freq %d\n",
+		__func__, cooling_level, current_cooling_level, cool_freq);
+	current_cooling_level = cooling_level;
+
+	mutex_lock(&omap_cpufreq_lock);
+
+	max_thermal = cool_freq;
+
+	if (!omap_cpufreq_suspended) {
+		unsigned int cur = omap_getspeed(0);
+			omap_cpufreq_scale(max_thermal, cur);
 	}
 
-	current_cooling_level = cooling_level;
+	mutex_unlock(&omap_cpufreq_lock);
 
 	return 0;
 }
@@ -419,7 +437,6 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 		cpumask_setall(policy->cpus);
 	}
 
-	omap_cpufreq_cooling_init();
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
 
@@ -528,6 +545,7 @@ static int __init omap_cpufreq_init(void)
 		if (t)
 			pr_warn("%s_init: platform_driver_register failed\n",
 				__func__);
+		ret = omap_cpufreq_cooling_init();
 	}
 
 	return ret;

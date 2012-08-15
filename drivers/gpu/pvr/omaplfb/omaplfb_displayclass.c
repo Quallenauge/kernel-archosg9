@@ -791,7 +791,7 @@ void OMAPLFBSwapHandler(OMAPLFB_BUFFER *psBuffer)
 	psDevInfo->sPVRJTable.pfnPVRSRVCmdComplete((IMG_HANDLE)psBuffer->hCmdComplete, IMG_TRUE);
 }
 
-#if defined(CONFIG_DSSCOMP)
+#if defined(CONFIG_DSSCOMP) || defined (CONFIG_DSSCOMP_MODULE)
 
 #include <mach/tiler.h>
 #include <video/dsscomp.h>
@@ -878,6 +878,7 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		IMG_UINTPTR_T uiAddr;
 		IMG_UINTPTR_T uiUVAddr;
 		struct tiler_pa_info *psTilerInfo;
+		bool contiguous;
 	} asMemInfo[5];
 
 	memset(asMemInfo, 0, sizeof(asMemInfo));
@@ -904,11 +905,12 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		IMG_SIZE_T uByteSize;
 		int j;
 
+		asMemInfo[k].contiguous = true;
+
 		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetByteSize(ppsMemInfos[i], &uByteSize);
 		ui32NumPages = (uByteSize + PAGE_SIZE - 1) >> PAGE_SHIFT;
 
 		psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
-
 		/* TILER buffers do not need meminfos */
 		if(is_tiler_addr((u32)phyAddr.uiAddr))
 		{
@@ -919,6 +921,7 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 				i++;
 				psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], 0, &phyAddr);
 				asMemInfo[k].uiUVAddr = phyAddr.uiAddr;
+				asMemInfo[k].contiguous = false;
 			}
 			continue;
 		}
@@ -943,6 +946,10 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		{
 			psDevInfo->sPVRJTable.pfnPVRSRVDCMemInfoGetCpuPAddr(ppsMemInfos[i], j << PAGE_SHIFT, &phyAddr);
 			psTilerInfo->mem[j] = (u32)phyAddr.uiAddr;
+			if (j > 0) {
+				//A buffer is contiguous if all physical adresses are seperated by exactly PAGE_SIZE
+				asMemInfo[k].contiguous &= ((psTilerInfo->mem[j] - psTilerInfo->mem[j-1]) == PAGE_SIZE);
+			}
 		}
 
 		/* need base address for in-page offset */
@@ -971,6 +978,13 @@ static IMG_BOOL ProcessFlipV2(IMG_HANDLE hCmdCookie,
 		{
 			WARN(1, "Invalid Post2 layer (%u)", ix);
 			psDssData->ovls[i].cfg.enabled = false;
+			continue;
+		}
+		if (asMemInfo[ix].contiguous) {
+			psDssData->ovls[i].addressing = OMAP_DSS_BUFADDR_FB;
+			psDssData->ovls[i].ba = psDssData->ovls[i].uv = asMemInfo[ix].psTilerInfo->mem[0];
+			kfree(asMemInfo[ix].psTilerInfo->mem);
+			kfree(asMemInfo[ix].psTilerInfo);
 			continue;
 		}
 
@@ -1025,7 +1039,7 @@ static IMG_BOOL ProcessFlip(IMG_HANDLE  hCmdCookie,
 	}
 	else
 	{
-#if defined(CONFIG_DSSCOMP)
+#if defined(CONFIG_DSSCOMP) || defined (CONFIG_DSSCOMP_MODULE)
 		DISPLAYCLASS_FLIP_COMMAND2 *psFlipCmd2;
 		psFlipCmd2 = (DISPLAYCLASS_FLIP_COMMAND2 *)pvData;
 		return ProcessFlipV2(hCmdCookie,
@@ -1130,8 +1144,9 @@ static OMAPLFB_ERROR OMAPLFBInitFBDev(OMAPLFB_DEVINFO *psDevInfo)
 
 	/* hijack LINFB */
 #if defined(CONFIG_ION_OMAP)
-	if(1)
+	if(psLINFBInfo->var.yres >  psLINFBInfo->var.xres)
 	{
+		//For portrait devices use the tiler to rotate the screen
 		/* for some reason we need at least 3 buffers in the swap chain */
 		int n = FBSize / RoundUpToMultiple(psLINFBInfo->fix.line_length * psLINFBInfo->var.yres, ulLCM);
 		int res;

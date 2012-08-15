@@ -529,7 +529,8 @@ long st_kim_stop(void *kim_data)
 			msecs_to_jiffies(LDISC_TIME));
 	if (!err) {		/* timeout */
 		pr_err(" timed out waiting for ldisc to be un-installed");
-		return -ETIMEDOUT;
+		err = -ETIMEDOUT;
+		/* go on to finalize stopping of device nevertheless */
 	}
 
 	/* By default configure BT nShutdown to LOW state */

@@ -185,8 +185,8 @@ report:
 	    tdev->dev_ops->report_temp) {
 			ret = tdev->dev_ops->report_temp(tdev);
 	} else {
-		pr_err("%s:Getting temp is not supported for domain %s\n",
-			__func__, thermal_domain->domain_name);
+		pr_debug("%s:Getting temp is not supported for domain %s dev %s\n",
+			__func__, thermal_domain->domain_name, tdev->name);
 		ret = -EOPNOTSUPP;
 	}
 	return ret;

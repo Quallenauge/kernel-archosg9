@@ -182,6 +182,13 @@ enum omap_dss_rotation_angle {
 	OMAP_DSS_ROT_270 = 3,
 };
 
+enum omap_dither_mode {
+	OMAP_DSS_DITHER_NONE = 0,
+	OMAP_DSS_DITHER_SPATIAL = 1,
+	OMAP_DSS_DITHER_SPATIALTEMPORAL_2FRA = 2,
+	OMAP_DSS_DITHER_SPATIALTEMPORAL_4FRA = 3,
+};
+
 enum omap_overlay_caps {
 	OMAP_DSS_OVL_CAP_SCALE = 1 << 0,
 	OMAP_DSS_OVL_CAP_DISPC = 1 << 1,
@@ -489,6 +496,8 @@ struct omap_dss_device {
 	union {
 		struct {
 			u8 data_lines;
+			enum omap_dither_mode dither;
+			u32 *gamma_correction;
 		} dpi;
 
 		struct {

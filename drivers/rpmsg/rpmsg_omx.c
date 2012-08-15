@@ -111,9 +111,16 @@ static LIST_HEAD(rpmsg_omx_services_list);
  */
 #define TILER_START	0x60000000
 #define TILER_END	0x80000000
+
+#ifdef CONFIG_ION_OMAP_DYNAMIC
+#define ION_1D_START	0x82700000
+#define ION_1D_END	0x99700000
+#define ION_1D_VA	0x88000000
+#else
 #define ION_1D_START	0xBA300000
 #define ION_1D_END	0xBFD00000
 #define ION_1D_VA	0x88000000
+#endif
 static u32 _rpmsg_pa_to_da(u32 pa)
 {
 	if (pa >= TILER_START && pa < TILER_END)
@@ -156,7 +163,6 @@ static u32 _rpmsg_omx_buffer_lookup(struct rpmsg_omx_instance *omx, long buffer)
 #endif
 #endif
 	pa = (phys_addr_t) tiler_virt2phys(buffer);
-
 #ifdef CONFIG_ION_OMAP
 to_va:
 #endif

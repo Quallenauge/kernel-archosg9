@@ -50,8 +50,8 @@ static int fixed_voltage_enable(struct regulator_dev *dev)
 
 	if (gpio_is_valid(data->gpio)) {
 		gpio_set_value_cansleep(data->gpio, data->enable_high);
-		data->is_enabled = true;
 	}
+	data->is_enabled = true;
 
 	return 0;
 }
@@ -62,8 +62,8 @@ static int fixed_voltage_disable(struct regulator_dev *dev)
 
 	if (gpio_is_valid(data->gpio)) {
 		gpio_set_value_cansleep(data->gpio, !data->enable_high);
-		data->is_enabled = false;
 	}
+	data->is_enabled = false;
 
 	return 0;
 }
@@ -171,11 +171,14 @@ static int __devinit reg_fixed_voltage_probe(struct platform_device *pdev)
 			goto err_gpio;
 		}
 
+		if (config->remux)
+			config->remux(config->gpio);
+		
 	} else {
-		/* Regulator without GPIO control is considered
-		 * always enabled
+		/* Regulator without GPIO control just follows
+		 * enable/disable actions from regulator core
 		 */
-		drvdata->is_enabled = true;
+		drvdata->is_enabled = config->enabled_at_boot;
 	}
 
 	drvdata->dev = regulator_register(&drvdata->desc, &pdev->dev,

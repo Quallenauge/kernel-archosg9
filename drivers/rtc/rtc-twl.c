@@ -526,9 +526,12 @@ static int __devexit twl_rtc_remove(struct platform_device *pdev)
 
 static void twl_rtc_shutdown(struct platform_device *pdev)
 {
-	/* mask timer interrupts, but leave alarm interrupts on to enable
-	   power-on when alarm is triggered */
+	/* mask timer interrupts */
 	mask_rtc_irq_bit(BIT_RTC_INTERRUPTS_REG_IT_TIMER_M);
+	/* mask alarm interrupts, break power-on by alarm, but make
+	 * sure device does not random restart later because of any
+	 * forgotten alarm */
+	mask_rtc_irq_bit(BIT_RTC_INTERRUPTS_REG_IT_ALARM_M);
 }
 
 #ifdef CONFIG_PM

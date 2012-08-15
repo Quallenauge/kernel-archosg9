@@ -58,21 +58,26 @@ void __init omap4_register_ion(void)
 	platform_device_register(&omap4_ion_device);
 }
 
+void __init omap_ion_set_platform_data(struct ion_platform_data *ion_heap_data)
+{
+	if (ion_heap_data != NULL) omap4_ion_device.dev.platform_data = ion_heap_data;
+}
+
 void __init omap_ion_init(void)
 {
 	int i;
 	int ret;
 
-	memblock_remove(OMAP4_RAMCONSOLE_START, OMAP4_RAMCONSOLE_SIZE);
+	struct ion_platform_data *ion_data = omap4_ion_device.dev.platform_data;
 
-	for (i = 0; i < omap4_ion_data.nr; i++)
-		if (omap4_ion_data.heaps[i].type == ION_HEAP_TYPE_CARVEOUT ||
-		    omap4_ion_data.heaps[i].type == OMAP_ION_HEAP_TYPE_TILER) {
-			ret = memblock_remove(omap4_ion_data.heaps[i].base,
-					      omap4_ion_data.heaps[i].size);
+	for (i = 0; i < ion_data->nr; i++)
+		if (ion_data->heaps[i].type == ION_HEAP_TYPE_CARVEOUT ||
+		    ion_data->heaps[i].type == OMAP_ION_HEAP_TYPE_TILER) {
+			ret = memblock_remove(ion_data->heaps[i].base,
+					      ion_data->heaps[i].size);
 			if (ret)
 				pr_err("memblock remove of %x@%lx failed\n",
-				       omap4_ion_data.heaps[i].size,
-				       omap4_ion_data.heaps[i].base);
+				       ion_data->heaps[i].size,
+				       ion_data->heaps[i].base);
 		}
 }

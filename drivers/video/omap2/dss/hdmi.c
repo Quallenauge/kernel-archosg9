@@ -39,6 +39,8 @@
 #include <linux/gpio.h>
 #include <linux/fb.h>
 #include <linux/omapfb.h>
+#include <linux/spinlock.h>
+#include <linux/workqueue.h>
 
 #include "dss.h"
 #include "dss_features.h"
@@ -64,7 +66,18 @@ static struct pm_qos_request_list pm_qos_handle;
 
 #define OMAP_HDMI_TIMINGS_NB			34
 
-static struct {
+enum power_state {
+	HDMI_POWER_OFF = 0,
+	HDMI_POWER_MIN,
+	HDMI_POWER_FULL,
+};
+
+enum connection_state {
+	HDMI_DISCONNECT = 1,
+	HDMI_CONNECT = 2,
+};
+
+static struct hdmi_data {
 	struct mutex lock;
 	struct omap_display_platform_data *pdata;
 	struct platform_device *pdev;
@@ -79,7 +92,7 @@ static struct {
 	bool custom_set;
 	enum hdmi_deep_color_mode deep_color;
 	struct hdmi_config cfg;
-	struct regulator *hdmi_reg;
+	struct regulator *hdmi_reg, *hdmi_5v;
 
 	int hdmi_irq;
 	struct clk *sys_clk;
@@ -93,30 +106,37 @@ static struct {
 	u8 s3d_mode;
 	bool s3d_enable;
 
+	int main_runtime_count;
+	enum power_state power_state;
+	struct work_struct work;
+	spinlock_t work_lock;
+	enum connection_state connection_state;
+	enum connection_state connection_trans;
+
 	void (*hdmi_start_frame_cb)(void);
 	void (*hdmi_irq_cb)(int);
 	bool (*hdmi_power_on_cb)(void);
 } hdmi;
 
+static struct hdmi_5v_work_data {
+	struct delayed_work dwork;
+	atomic_t current_state;
+	atomic_t req_state;
+} hdmi_5v_work;
+static struct workqueue_struct *hdmi_5v_workq;
+
+void hdmi_panel_phy_connected(void);
+void hdmi_panel_phy_disconnected(void);
+
 static const u8 edid_header[8] = {0x0, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0x0};
 
-static int hdmi_runtime_get(void)
+static int hdmi_main_runtime_get(void)
 {
 	int r;
-
-	DSSDBG("hdmi_runtime_get\n");
-
-	if (hdmi.runtime_count++ == 0) {
+	if (hdmi.main_runtime_count++ == 0) {
 		r = dss_runtime_get();
 		if (r)
-			goto err_get_dss;
-
-		r = dispc_runtime_get();
-		if (r)
-			goto err_get_dispc;
-
-		clk_enable(hdmi.sys_clk);
-		clk_enable(hdmi.hdmi_clk);
+			return r;
 
 		r = pm_runtime_get_sync(&hdmi.pdev->dev);
 		WARN_ON(r);
@@ -125,32 +145,54 @@ static int hdmi_runtime_get(void)
 	}
 
 	return 0;
-
 err_runtime_get:
+	dss_runtime_put();
+	return r;
+}
+
+static int hdmi_main_runtime_put(void)
+{
+	if (--hdmi.main_runtime_count == 0) {
+		int r = pm_runtime_put_sync(&hdmi.pdev->dev);
+		WARN_ON(r);
+		dss_runtime_put();
+	}
+
+	return 0;
+}
+
+static int hdmi_runtime_get(void)
+{
+	int r;
+
+	DSSDBG("hdmi_runtime_get\n");
+
+	if (hdmi.runtime_count++ == 0) {
+		r = dispc_runtime_get();
+		if (r)
+			goto err_get_dispc;
+
+		clk_enable(hdmi.sys_clk);
+		clk_enable(hdmi.hdmi_clk);
+	}
+
+	return 0;
+
 	clk_disable(hdmi.sys_clk);
 	clk_disable(hdmi.hdmi_clk);
-	dispc_runtime_put();
 err_get_dispc:
-	dss_runtime_put();
-err_get_dss:
 	return r;
 }
 
 static void hdmi_runtime_put(void)
 {
-	int r;
-
 	DSSDBG("hdmi_runtime_put\n");
 
 	if (--hdmi.runtime_count == 0) {
-		r = pm_runtime_put_sync(&hdmi.pdev->dev);
-		WARN_ON(r);
-
 		clk_disable(hdmi.sys_clk);
 		clk_disable(hdmi.hdmi_clk);
 
 		dispc_runtime_put();
-		dss_runtime_put();
 	}
 }
 
@@ -238,11 +280,15 @@ void hdmi_get_monspecs(struct fb_monspecs *specs)
 	fb_edid_to_monspecs(edid, specs);
 	if (specs->modedb == NULL)
 		return;
-
+	
 	for (i = 1; i <= edid[0x7e] && i * 128 < HDMI_EDID_MAX_LENGTH; i++) {
 		if (edid[i * 128] == 0x2)
 			fb_edid_add_monspecs(edid + i * 128, specs);
 	}
+
+#ifdef CONFIG_SUPPORT_PANEL_EXTRA_MODE
+	fb_extrapolate_modedb(specs);
+#endif
 
 	hdmi.can_do_hdmi = specs->misc & FB_MISC_HDMI;
 
@@ -384,6 +430,9 @@ static void hdmi_set_l3_cstr(struct omap_dss_device *dssdev, bool enable)
 #endif
 }
 
+static void hdmi_power_off(struct omap_dss_device *dssdev);
+static int hdmi_power_min(struct omap_dss_device *dssdev);
+
 static int hdmi_power_on(struct omap_dss_device *dssdev)
 {
 	int r;
@@ -391,9 +440,18 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 	struct omap_video_timings *p;
 	unsigned long phy;
 
+	if (hdmi.power_state == HDMI_POWER_OFF) {
+		r = hdmi_power_min(dssdev);
+		if (r)
+			return r;
+	}
+
 	r = hdmi_runtime_get();
-	if (r)
+	if (r) {
+		if (hdmi.power_state == HDMI_POWER_OFF)
+			hdmi_power_off(dssdev);
 		return r;
+	}
 
 	hdmi_set_l3_cstr(dssdev, true);
 
@@ -449,13 +507,13 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 		goto err;
 	}
 
-	r = hdmi_ti_4xxx_phy_init(&hdmi.hdmi_data);
+	r = hdmi_ti_4xxx_phy_init(&hdmi.hdmi_data, 0x1);
 	if (r) {
 		DSSDBG("Failed to start PHY\n");
 		goto err;
 	}
 
-	hdmi.cfg.cm.mode = hdmi.can_do_hdmi ? hdmi.mode : HDMI_DVI;
+	hdmi.cfg.cm.mode = hdmi.can_do_hdmi ? HDMI_HDMI : hdmi.mode;
 	hdmi.cfg.cm.code = hdmi.code;
 	hdmi_ti_4xxx_basic_configure(&hdmi.hdmi_data, &hdmi.cfg);
 	if (hdmi.s3d_enable) {
@@ -493,26 +551,88 @@ static int hdmi_power_on(struct omap_dss_device *dssdev)
 	    hdmi.wp_reset_done)
 		(*hdmi.hdmi_start_frame_cb)();
 
+	hdmi.power_state = HDMI_POWER_FULL;
 	return 0;
 err:
 	hdmi_set_l3_cstr(dssdev, false);
 	hdmi_runtime_put();
+	hdmi.power_state = HDMI_POWER_OFF;
+	return -EIO;
+}
+
+static int hdmi_power_min(struct omap_dss_device *dssdev)
+{
+	int r;
+	if (hdmi.power_state == HDMI_POWER_FULL)  {
+		r = hdmi_ti_4xxx_phy_init(&hdmi.hdmi_data, 0);
+		if (r) {
+			DSSDBG("Failed to switch off PHY TX_ON\n");
+		}
+
+		if (hdmi.hdmi_irq_cb)
+			hdmi.hdmi_irq_cb(HDMI_HPD_LOW);
+
+		hdmi_ti_4xxx_wp_video_start(&hdmi.hdmi_data, 0);
+
+		dispc_enable_channel(OMAP_DSS_CHANNEL_DIGIT, dssdev->type, 0);
+		hdmi_ti_4xxx_set_pll_pwr(&hdmi.hdmi_data, HDMI_PLLPWRCMD_ALLOFF);
+		hdmi_set_l3_cstr(dssdev, false);
+		hdmi_runtime_put();
+		hdmi.deep_color = HDMI_DEEP_COLOR_24BIT;
+
+		hdmi.power_state = HDMI_POWER_MIN;
+	} else if (hdmi.power_state == HDMI_POWER_OFF) {
+
+		r = hdmi_main_runtime_get();
+		if (r)
+			goto err;
+		r = hdmi_runtime_get();
+		if (r)
+			goto err2;
+
+		r = hdmi_ti_4xxx_phy_init(&hdmi.hdmi_data, 0);
+
+		hdmi_runtime_put();
+
+		if (r) {
+			DSSDBG("Failed to start PHY\n");
+			goto err2;
+		}
+	}
+
+	hdmi.power_state = HDMI_POWER_MIN;
+	return 0;
+
+//err3:
+	hdmi_ti_4xxx_phy_off(&hdmi.hdmi_data, hdmi.set_mode);
+err2:
+	hdmi_main_runtime_put();
+err:
+	hdmi.power_state = HDMI_POWER_OFF;
 	return -EIO;
 }
 
 static void hdmi_power_off(struct omap_dss_device *dssdev)
 {
-	if (hdmi.hdmi_irq_cb)
-		hdmi.hdmi_irq_cb(HDMI_HPD_LOW);
+	if (hdmi.power_state == HDMI_POWER_FULL) {
+		if (hdmi.hdmi_irq_cb)
+			hdmi.hdmi_irq_cb(HDMI_HPD_LOW);
 
-	hdmi_ti_4xxx_wp_video_start(&hdmi.hdmi_data, 0);
+		hdmi_ti_4xxx_wp_video_start(&hdmi.hdmi_data, 0);
 
-	dispc_enable_channel(OMAP_DSS_CHANNEL_DIGIT, dssdev->type, 0);
-	hdmi_ti_4xxx_phy_off(&hdmi.hdmi_data, hdmi.set_mode);
-	hdmi_ti_4xxx_set_pll_pwr(&hdmi.hdmi_data, HDMI_PLLPWRCMD_ALLOFF);
-	hdmi_set_l3_cstr(dssdev, false);
-	hdmi_runtime_put();
+		dispc_enable_channel(OMAP_DSS_CHANNEL_DIGIT, dssdev->type, 0);
+
+		hdmi_runtime_put();
+		hdmi_set_l3_cstr(dssdev, false);
+		hdmi_ti_4xxx_set_pll_pwr(&hdmi.hdmi_data, HDMI_PLLPWRCMD_ALLOFF);
+	}
+
 	hdmi.deep_color = HDMI_DEEP_COLOR_24BIT;
+
+	hdmi_ti_4xxx_phy_off(&hdmi.hdmi_data, hdmi.set_mode);
+	hdmi_main_runtime_put();
+
+	hdmi.power_state = HDMI_POWER_OFF;
 }
 
 int omapdss_hdmi_get_pixel_clock(void)
@@ -581,14 +701,87 @@ int hdmi_get_current_hpd()
 	return gpio_get_value(hdmi.dssdev->hpd_gpio);
 }
 
+static void hdmi_5V_worker(struct work_struct *work)
+{
+	struct hdmi_5v_work_data *d = container_of(work, typeof(*d), dwork.work);
+	int req_state = atomic_read(&d->req_state);
+	int current_state = atomic_read(&d->current_state);
+
+	if (hdmi.hdmi_5v) {
+		 if (req_state && !current_state) {
+			regulator_enable(hdmi.hdmi_5v);
+			atomic_set(&d->current_state, req_state);
+			return;
+		 }
+		 if (!req_state && current_state) {
+			regulator_disable(hdmi.hdmi_5v);
+			atomic_set(&d->current_state, req_state);
+			return;
+		 }
+	}
+}
+
+static void update5V_state(void) {
+	int cur_state =  atomic_read(&hdmi_5v_work.current_state);
+	int req_state = atomic_read(&hdmi_5v_work.req_state);
+
+	if (((cur_state != 1) || (req_state != 1))&& (hdmi_get_current_hpd() || (hdmi.connection_state == HDMI_CONNECT))) {
+		if (!req_state) {
+			__cancel_delayed_work(&hdmi_5v_work.dwork);
+			atomic_set(&hdmi_5v_work.req_state, 1);
+			queue_delayed_work(hdmi_5v_workq, &hdmi_5v_work.dwork, msecs_to_jiffies(40));
+		}
+		return;
+	}
+
+	if (((cur_state != 0) || (req_state != 0)) && (!hdmi_get_current_hpd() && (hdmi.connection_state == HDMI_DISCONNECT))) {
+		if (req_state) {
+			__cancel_delayed_work(&hdmi_5v_work.dwork);
+			atomic_set(&hdmi_5v_work.req_state, 0);
+			queue_delayed_work(hdmi_5v_workq, &hdmi_5v_work.dwork, msecs_to_jiffies(2000));
+		}
+		return;
+	}
+}
+
 static irqreturn_t hpd_irq_handler(int irq, void *ptr)
 {
 	int hpd = hdmi_get_current_hpd();
 	pr_info("hpd %d\n", hpd);
-
+	update5V_state();
 	hdmi_panel_hpd_handler(hpd);
 
 	return IRQ_HANDLED;
+}
+
+static void hdmi_irq_worker(struct work_struct *work)
+{
+	struct hdmi_data *data = container_of(work, typeof(struct hdmi_data), work);
+	int trans, state = 0;
+	unsigned long flags;
+
+	spin_lock_irqsave(&data->work_lock, flags);
+	trans = hdmi.connection_trans;
+	hdmi.connection_trans = 0;
+	spin_unlock_irqrestore(&data->work_lock, flags);
+
+	if (trans == HDMI_CONNECT) {
+pr_err("HDMI LINK CONNECT\n");
+		state = HDMI_CONNECT;
+		hdmi_panel_phy_connected();
+	} else if (trans == HDMI_DISCONNECT) {
+pr_err("HDMI LINK DISCONNECT\n");
+		hdmi_panel_phy_disconnected();
+		state = HDMI_DISCONNECT;
+	}
+
+	if (state) {
+		spin_lock_irqsave(&data->work_lock, flags);
+		hdmi.connection_state = state;
+		spin_unlock_irqrestore(&data->work_lock, flags);
+
+		update5V_state();
+	}
 }
 
 static irqreturn_t hdmi_irq_handler(int irq, void *arg)
@@ -599,7 +792,27 @@ static irqreturn_t hdmi_irq_handler(int irq, void *arg)
 
 	DSSDBG("Received HDMI IRQ = %08x\n", r);
 
-	if (hdmi.hdmi_irq_cb)
+	if (r & (HDMI_LINK_DISCONNECT | HDMI_LINK_CONNECT)) {
+pr_err("HDMI LINK try dis-/connect\n");
+		spin_lock(&hdmi.work_lock);
+
+		if (r & HDMI_LINK_DISCONNECT) {
+			if (hdmi.connection_trans == HDMI_CONNECT) /* last transition still not handled -> do nothing */
+				hdmi.connection_trans = 0;
+			else
+				hdmi.connection_trans = HDMI_DISCONNECT;
+			schedule_work(&hdmi.work);
+		} else if (r & HDMI_LINK_CONNECT) {
+			if (hdmi.connection_trans == HDMI_DISCONNECT) /* last transition still not handled -> do nothing */
+				hdmi.connection_trans = 0;
+			else
+				hdmi.connection_trans = HDMI_CONNECT;
+		}
+
+		schedule_work(&hdmi.work);
+
+		spin_unlock(&hdmi.work_lock);
+	} else if (hdmi.hdmi_irq_cb)
 		hdmi.hdmi_irq_cb(r);
 
 	return IRQ_HANDLED;
@@ -634,7 +847,7 @@ int omapdss_hdmi_display_set_mode(struct omap_dss_device *dssdev,
 	r1 = hdmi_set_timings(vm, false) ? 0 : -EINVAL;
 	hdmi.custom_set = 1;
 	hdmi.code = hdmi.cfg.cm.code;
-	hdmi.mode = hdmi.cfg.cm.mode;
+	hdmi.mode = hdmi.can_do_hdmi ? HDMI_HDMI : hdmi.cfg.cm.mode;
 	r2 = dssdev->driver->enable(dssdev);
 	return r1 ? : r2;
 }
@@ -678,7 +891,7 @@ int omapdss_hdmi_display_enable(struct omap_dss_device *dssdev)
 		}
 	}
 
-	hdmi.hdmi_reg = regulator_get(NULL, "hdmi_vref");
+	hdmi.hdmi_reg = regulator_get(&hdmi.pdev->dev, "hdmi_vref");
 	if (IS_ERR_OR_NULL(hdmi.hdmi_reg)) {
 		DSSERR("Failed to get hdmi_vref regulator\n");
 		r = PTR_ERR(hdmi.hdmi_reg) ? : -ENODEV;
@@ -728,8 +941,9 @@ void omapdss_hdmi_display_disable(struct omap_dss_device *dssdev)
 	hdmi.enabled = false;
 	hdmi.wp_reset_done = false;
 
-	hdmi_power_off(dssdev);
+	hdmi_power_min(dssdev);
 	if (dssdev->sync_lost_error == 0)
+		//FIXME read edid after suspend too because you can plug another tv during suspend
 		if (dssdev->state != OMAP_DSS_DISPLAY_SUSPENDED) {
 			/* clear EDID and mode on disable only */
 			hdmi.edid_set = false;
@@ -746,6 +960,29 @@ void omapdss_hdmi_display_disable(struct omap_dss_device *dssdev)
 	omap_dss_stop_device(dssdev);
 done:
 	mutex_unlock(&hdmi.lock);
+}
+
+static void omapdss_hdmi_suspend(struct omap_dss_device *dssdev)
+{
+	pr_debug("ENTER omapdss_hdmi_suspend\n");
+#if 0
+	if (hdmi.connection_state == HDMI_CONNECT) {
+		if (hdmi.hdmi_5v) {
+			int r = regulator_disable(hdmi.hdmi_5v);
+			if (r)
+				DSSERR("failed to disable hdmi_5v regulator\n");
+			else
+				hdmi.connection_state = HDMI_DISCONNECT;
+		}
+	}
+#endif
+	hdmi_power_off(dssdev);
+}
+
+static void omapdss_hdmi_resume(struct omap_dss_device *dssdev)
+{
+	pr_debug("ENTER omapdss_hdmi_resume\n");
+	hdmi_power_min(dssdev);
 }
 
 static int hdmi_get_clocks(struct platform_device *pdev)
@@ -780,6 +1017,18 @@ static void hdmi_put_clocks(void)
 		clk_put(hdmi.hdmi_clk);
 }
 
+static int omapdss_hdmihw_suspend(struct platform_device *pdev, pm_message_t mesg)
+{
+	omapdss_hdmi_suspend(hdmi.dssdev);
+	return 0;
+}
+
+static int omapdss_hdmihw_resume(struct platform_device *pdev)
+{
+	omapdss_hdmi_resume(hdmi.dssdev);
+	return 0;
+}
+
 /* HDMI HW IP initialisation */
 static int omapdss_hdmihw_probe(struct platform_device *pdev)
 {
@@ -791,6 +1040,16 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 	hdmi.pdev = pdev;
 
 	mutex_init(&hdmi.lock);
+
+	hdmi_5v_workq = create_singlethread_workqueue("hdmi_5v_work");
+	INIT_DELAYED_WORK(&hdmi_5v_work.dwork, hdmi_5V_worker);
+	atomic_set(&hdmi_5v_work.current_state, 0);
+	atomic_set(&hdmi_5v_work.req_state, 0);
+
+	INIT_WORK(&hdmi.work, hdmi_irq_worker);
+	spin_lock_init(&hdmi.work_lock);
+	hdmi.connection_state = HDMI_DISCONNECT;
+	hdmi.connection_trans = 0;
 
 	/* save reference to HDMI device */
 	board_data = hdmi.pdata->board_data;
@@ -817,31 +1076,24 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 		return -ENOMEM;
 	}
 
+	hdmi.hdmi_5v = regulator_get(&hdmi.pdev->dev, "hdmi_5v");
+	if (IS_ERR_OR_NULL(hdmi.hdmi_5v)) {
+		DSSERR("Failed to get \"hdmi_5v\" regulator\n");
+		r = PTR_ERR(hdmi.hdmi_5v) ? : -ENODEV;
+		hdmi.hdmi_5v = NULL;
+		//goto reg_err; FixMe: Currently it continues without 5V
+	}
+
 	r = hdmi_get_clocks(pdev);
 	if (r) {
 		iounmap(hdmi.hdmi_data.base_wp);
-		return r;
+		goto err_clks;
 	}
 
 	pm_runtime_enable(&pdev->dev);
 
-	r = request_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler,
-			IRQF_DISABLED | IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
-			"hpd", NULL);
-	if (r < 0) {
-		pr_err("hdmi: request_irq %d failed\n",
-			gpio_to_irq(hdmi.dssdev->hpd_gpio));
-		return -EINVAL;
-	}
-
 	hdmi.hdmi_irq = platform_get_irq(pdev, 0);
 
-	r = request_irq(hdmi.hdmi_irq, hdmi_irq_handler, 0, "OMAP HDMI", NULL);
-	if (r < 0) {
-		pr_err("hdmi: request_irq %s failed\n",
-			pdev->name);
-		return -EINVAL;
-	}
 
 	hdmi.hdmi_data.hdmi_core_sys_offset = HDMI_CORE_SYS;
 	hdmi.hdmi_data.hdmi_core_av_offset = HDMI_CORE_AV;
@@ -851,15 +1103,44 @@ static int omapdss_hdmihw_probe(struct platform_device *pdev)
 
 	hdmi_panel_init();
 
-	if(hdmi_get_current_hpd())
-		hdmi_panel_hpd_handler(1);
+	hdmi_power_min(hdmi.dssdev);
+
+	r = request_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler,
+			IRQF_DISABLED | IRQF_TRIGGER_RISING | IRQF_TRIGGER_FALLING,
+			"hpd", NULL);
+	if (r < 0) {
+		pr_err("hdmi: request_irq %d failed\n",
+			gpio_to_irq(hdmi.dssdev->hpd_gpio));
+		goto err_irq;
+	}
+
+	r = request_irq(hdmi.hdmi_irq, hdmi_irq_handler, 0, "OMAP HDMI", NULL);
+	if (r < 0) {
+		pr_err("hdmi: request_irq %s failed\n",
+			pdev->name);
+		goto err_irq2;
+	}
 
 	return 0;
+
+err_irq2:
+	free_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler);
+err_irq:
+	pm_runtime_disable(&pdev->dev);
+	hdmi_put_clocks();
+err_clks:
+	if (hdmi.hdmi_5v)
+		regulator_put(hdmi.hdmi_5v);
+//reg_err:
+	iounmap(hdmi.hdmi_data.base_wp);
+	return r;
 }
 
 static int omapdss_hdmihw_remove(struct platform_device *pdev)
 {
 	hdmi_panel_exit();
+
+	free_irq(hdmi.hdmi_irq, hdmi_irq_handler);
 
 	if (hdmi.dssdev)
 		free_irq(gpio_to_irq(hdmi.dssdev->hpd_gpio), hpd_irq_handler);
@@ -869,6 +1150,9 @@ static int omapdss_hdmihw_remove(struct platform_device *pdev)
 
 	hdmi_put_clocks();
 
+	if (hdmi.hdmi_5v)
+		regulator_put(hdmi.hdmi_5v);
+
 	iounmap(hdmi.hdmi_data.base_wp);
 
 	return 0;
@@ -877,6 +1161,8 @@ static int omapdss_hdmihw_remove(struct platform_device *pdev)
 static struct platform_driver omapdss_hdmihw_driver = {
 	.probe          = omapdss_hdmihw_probe,
 	.remove         = omapdss_hdmihw_remove,
+	.suspend 	= omapdss_hdmihw_suspend,
+	.resume 	= omapdss_hdmihw_resume,
 	.driver         = {
 		.name   = "omapdss_hdmi",
 		.owner  = THIS_MODULE,
@@ -895,10 +1181,10 @@ void hdmi_uninit_platform_driver(void)
 
 void hdmi_dump_regs(struct seq_file *s)
 {
-	if (hdmi_runtime_get())
+	if (hdmi_main_runtime_get())
 		return;
 
 	hdmi_ti_4xxx_dump_regs(&hdmi.hdmi_data, s);
 
-	hdmi_runtime_put();
+	hdmi_main_runtime_put();
 }

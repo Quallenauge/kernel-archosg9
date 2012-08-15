@@ -62,6 +62,11 @@ int omap4430_phy_init(struct device *dev)
 		pr_err("control module ioremap failed\n");
 		return -ENOMEM;
 	}
+
+	/* Enable session END and IDIG to high impedance. */
+	__raw_writel(SESSEND | IDDIG, ctrl_base +
+				USBOTGHS_CONTROL);
+
 	/* Power down the phy */
 	__raw_writel(PHY_PD, ctrl_base + CONTROL_DEV_CONF);
 
@@ -98,7 +103,7 @@ int omap4430_phy_init(struct device *dev)
 
 int omap4430_phy_set_clk(struct device *dev, int on)
 {
-	static int state;
+	static int state = 0;
 
 	if (on && !state) {
 		/* Enable the phy clocks */
@@ -106,7 +111,7 @@ int omap4430_phy_set_clk(struct device *dev, int on)
 		clk_enable(clk48m);
 		clk_enable(clk32k);
 		state = 1;
-	} else if (state) {
+	} else if (!on && state) {
 		/* Disable the phy clocks */
 		clk_disable(phyclk);
 		clk_disable(clk48m);
@@ -168,10 +173,6 @@ int omap4_charger_detect(void)
 	}
 
 	omap4430_phy_power(NULL, 0, 0);
-	/* Power down the phy */
-	__raw_writel(PHY_PD, ctrl_base + CONTROL_DEV_CONF);
-	/* Disable the clocks */
-	omap4430_phy_set_clk(NULL, 0);
 
 	return charger;
 }
@@ -179,21 +180,34 @@ int omap4_charger_detect(void)
 int omap4430_phy_power(struct device *dev, int ID, int on)
 {
 	if (on) {
-		if (ID)
+		/* enabled the clocks */
+		omap4430_phy_set_clk(dev, 1);
+		/* power on the phy */
+		if (__raw_readl(ctrl_base + CONTROL_DEV_CONF) & PHY_PD) {
+			__raw_writel(~PHY_PD, ctrl_base + CONTROL_DEV_CONF);
+			msleep(200);
+		}
+		if (ID) {			
 			/* enable VBUS valid, IDDIG groung */
 			__raw_writel(AVALID | VBUSVALID, ctrl_base +
 							USBOTGHS_CONTROL);
-		else
+		} else {
+
 			/*
 			 * Enable VBUS Valid, AValid and IDDIG
 			 * high impedance
 			 */
 			__raw_writel(IDDIG | AVALID | VBUSVALID,
 						ctrl_base + USBOTGHS_CONTROL);
+		}
 	} else {
 		/* Enable session END and IDIG to high impedance. */
 		__raw_writel(SESSEND | IDDIG, ctrl_base +
 					USBOTGHS_CONTROL);
+		/* Power down the phy */
+		__raw_writel(PHY_PD, ctrl_base + CONTROL_DEV_CONF);
+		/* Disable the clocks */
+		omap4430_phy_set_clk(dev, 0);
 	}
 	return 0;
 }

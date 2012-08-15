@@ -17,8 +17,8 @@
 #ifndef _OMAP4_ION_H
 #define _OMAP4_ION_H
 
-#define OMAP4_RAMCONSOLE_START	(PLAT_PHYS_OFFSET + SZ_512M)
-#define OMAP4_RAMCONSOLE_SIZE	SZ_2M
+#include <linux/ion.h>
+
 #define OMAP4_ION_HEAP_SECURE_INPUT_SIZE	(SZ_1M * 90)
 #define OMAP4_ION_HEAP_TILER_SIZE		(SZ_128M - SZ_32M)
 #define OMAP4_ION_HEAP_NONSECURE_TILER_SIZE	SZ_32M
@@ -30,11 +30,13 @@
 				OMAP4_ION_HEAP_SECURE_INPUT_SIZE)
 
 #ifdef CONFIG_ION_OMAP
+void omap_ion_set_platform_data(struct ion_platform_data *ion_heap_data);
 void omap_ion_init(void);
 void omap4_register_ion(void);
 #else
-static inline void omap_ion_init(void) { return; }
-static inline void omap4_register_ion(void) { return; }
+inline void omap_ion_set_platform_data(struct ion_platform_data *ion_heap_data) { return; }
+inline void omap_ion_init(void) { return; }
+inline void omap4_register_ion(void) { return; }
 #endif
 
 #endif

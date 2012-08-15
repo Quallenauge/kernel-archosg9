@@ -44,6 +44,9 @@ struct panel_config {
 	/* Unit: line clocks */
 	int acb;	/* ac-bias pin frequency */
 
+	int width_in_um;
+	int height_in_um;
+
 	enum omap_panel_config config;
 
 	int power_on_delay;
@@ -105,7 +108,58 @@ static struct panel_config generic_dpi_panels[] = {
 		.power_off_delay	= 0,
 		.name			= "generic_720p",
 	},
+	
+	/* generic 32" 16/9 TV 720p */
+	{
+		{
+			.x_res		= 1280,
+			.y_res		= 720,
 
+			.pixel_clock	= 74250,
+
+			.hfp		= 110,
+			.hsw		= 40,
+			.hbp		= 20,
+
+			.vfp		= 5,
+			.vsw		= 5,
+			.vbp		= 20,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT,
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+		.width_in_um		= 708416,
+		.height_in_um		= 398484,
+		.name			= "generic_32_16_9_720p",
+	},
+
+	/* generic 32" 16/9 TV 1080p */
+	{
+		{
+			.x_res		= 1920,
+			.y_res		= 1080,
+
+			.pixel_clock	= 74250,
+
+			.hfp		= 110,
+			.hsw		= 40,
+			.hbp		= 20,
+
+			.vfp		= 5,
+			.vsw		= 5,
+			.vbp		= 20,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT,
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+		.width_in_um		= 708416,
+		.height_in_um		= 398484,
+		.name			= "generic_32_16_9_1080p",
+	},
 	/* Sharp LQ043T1DG01 */
 	{
 		{
@@ -256,6 +310,66 @@ static struct panel_config generic_dpi_panels[] = {
 		.power_off_delay	= 0,
 		.name			= "powertip_ph480272t",
 	},
+
+	/* AUO WXGA10 */
+	{
+		{
+			.x_res		= 1280,
+			.y_res		= 800,
+
+			.pixel_clock	= 68930,
+
+			.hsw		= 2,
+			.hfp		= 26,
+			.hbp		= 100,
+
+			.vsw		= 4,
+			.vfp		= 8,
+			.vbp		= 4,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT /*| OMAP_DSS_LCD_IPC*/ | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_ONOFF,
+
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+
+		.width_in_um		= 217000,
+		.height_in_um		= 136000,
+
+		.name			= "auo_wxga10",
+	},
+
+	/* CPT 80XA01 */
+	{
+		{
+			.x_res		= 1024,
+			.y_res		= 768,
+
+			.pixel_clock	= 65000,
+
+			.hsw		= 2,
+			.hfp		= 218,
+			.hbp		= 100,
+
+			.vsw		= 4,
+			.vfp		= 26,
+			.vbp		= 8,
+		},
+		.acbi			= 0x0,
+		.acb			= 0x0,
+		.config			= OMAP_DSS_LCD_TFT | OMAP_DSS_LCD_IVS |
+					  OMAP_DSS_LCD_IHS | OMAP_DSS_LCD_RF | OMAP_DSS_LCD_ONOFF,
+
+		.power_on_delay		= 0,
+		.power_off_delay	= 0,
+
+		.width_in_um		= 162000,
+		.height_in_um		= 122000,
+
+		.name			= "cpt_xga_8",
+	},
 };
 
 struct panel_drv_data {
@@ -347,6 +461,9 @@ static int generic_dpi_panel_probe(struct omap_dss_device *dssdev)
 	dssdev->panel.timings = panel_config->timings;
 	dssdev->panel.acb = panel_config->acb;
 	dssdev->panel.acbi = panel_config->acbi;
+
+	dssdev->panel.width_in_um = panel_config->width_in_um;
+	dssdev->panel.height_in_um = panel_config->height_in_um;
 
 	drv_data = kzalloc(sizeof(*drv_data), GFP_KERNEL);
 	if (!drv_data)

@@ -82,6 +82,8 @@ static int dpi_set_dsi_clk(struct omap_dss_device *dssdev, bool is_tft,
 
 	dss_select_dispc_clk_source(dssdev->clocks.dispc.dispc_fclk_src);
 
+	dss_select_lcd_clk_source(dssdev->manager->id, dssdev->clocks.dispc.dispc_fclk_src);
+
 	r = dispc_set_clock_div(dssdev->manager->id, &dispc_cinfo);
 	if (r)
 		return r;
@@ -170,6 +172,13 @@ static void dpi_basic_init(struct omap_dss_device *dssdev)
 			OMAP_DSS_LCD_DISPLAY_TFT : OMAP_DSS_LCD_DISPLAY_STN);
 	dispc_set_tft_data_lines(dssdev->manager->id,
 			dssdev->phy.dpi.data_lines);
+	dispc_set_dither_mode(dssdev->manager->id, 
+			dssdev->phy.dpi.dither);
+	if (dssdev->phy.dpi.gamma_correction) {
+		dispc_set_gamma_table(dssdev->manager->id, 
+				dssdev->phy.dpi.gamma_correction);
+		dispc_enable_gamma_table(1);
+	}
 }
 
 int omapdss_dpi_display_enable(struct omap_dss_device *dssdev)

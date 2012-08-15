@@ -1743,6 +1743,7 @@ int omap_dss_manager_unregister_callback(struct omap_overlay_manager *mgr,
 	spin_unlock_irqrestore(&dss_cache.lock, flags);
 	return r;
 }
+EXPORT_SYMBOL(omap_dss_manager_unregister_callback);
 
 static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 {
@@ -1754,11 +1755,12 @@ static int omap_dss_mgr_apply(struct omap_overlay_manager *mgr)
 	int num_planes_enabled = 0;
 	bool use_fifomerge;
 	unsigned long flags;
-	int r;
+	int r = 0;
 
 	DSSDBG("omap_dss_mgr_apply(%s)\n", mgr->name);
 
-	r = dispc_runtime_get();
+	if (!in_atomic())
+		r = dispc_runtime_get();
 	if (r)
 		return r;
 
@@ -1982,7 +1984,8 @@ skip_mgr:
 done:
 	spin_unlock_irqrestore(&dss_cache.lock, flags);
 
-	dispc_runtime_put();
+	if (!in_atomic())
+		dispc_runtime_put();
 
 	return r;
 }
