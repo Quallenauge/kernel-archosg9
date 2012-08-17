@@ -1009,7 +1009,7 @@ static void emif_calculate_regs(const struct emif_device_details *devices,
 		   OMAP44XX_REG_CL_MASK, timings->RL);
 
 	regs->ref_ctrl = get_sdram_ref_ctrl(freq, addressing);
-	regs->ref_ctrl_derated = regs->ref_ctrl / 4;
+	regs->ref_ctrl_derated = get_sdram_ref_ctrl(freq/4, addressing);
 
 	regs->sdram_tim1 = get_sdram_tim_1_reg(timings, min_tck, addressing);
 

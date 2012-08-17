@@ -2522,12 +2522,23 @@ static int omapfb_probe(struct platform_device *pdev)
 	DBG("mgr->apply'ed\n");
 
 	if (def_display) {
+		struct fb_info *fbi = fbdev->fbs[0];
 		r = omapfb_init_display(fbdev, def_display);
 		if (r) {
 			dev_err(fbdev->dev,
 					"failed to initialize default "
 					"display\n");
 			goto cleanup;
+		}
+		if (fbi) {
+			struct omapfb_info *ofbi = FB2OFB(fbi);
+			omapfb_get_mem_region(ofbi->region);
+			r = omapfb_apply_changes(fbi, 0);
+			omapfb_put_mem_region(ofbi->region);
+			if (r) {
+				dev_err(fbdev->dev, "failed to change mode\n");
+				return r;
+			}
 		}
 	}
 

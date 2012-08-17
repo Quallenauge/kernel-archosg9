@@ -100,6 +100,11 @@ void __init omap4_register_ion(void)
 	platform_device_register(&omap4_ion_device);
 }
 
+void __init omap_ion_set_platform_data(struct ion_platform_data *ion_heap_data)
+{
+	if (ion_heap_data != NULL) omap4_ion_device.dev.platform_data = ion_heap_data;
+}
+
 void __init omap_ion_init(void)
 {
 	int i;
@@ -120,7 +125,7 @@ void __init omap_ion_init(void)
 	} else {
 		omap4_ion_heap_secure_input_size = (SZ_1M * 90);
 		omap4_ion_heap_secure_output_wfdhdcp_size = (SZ_1M * 16);
-		omap4_ducati_heap_size = (SZ_1M * 105);
+		omap4_ducati_heap_size = (SZ_1M * 107);
 		omap4_ion_heap_nonsec_tiler_mem_size = nonsecure;
 		omap4_ion_heap_tiler_mem_size =
 					 (ALIGN(omap4_ion_pdata.tiler2d_size +

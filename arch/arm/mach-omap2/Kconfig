@@ -12,7 +12,7 @@ config ARCH_OMAP2PLUS_TYPICAL
 	select VFP
 	select NEON if ARCH_OMAP3 || ARCH_OMAP4
 	select SERIAL_OMAP
-	select SERIAL_OMAP_CONSOLE
+	#select SERIAL_OMAP_CONSOLE
 	select I2C
 	select I2C_OMAP
 	select MFD_SUPPORT
@@ -371,6 +371,60 @@ config MACH_OMAP4_PANDA
 	select OMAP_TPS6236X
 	select OMAP_REBOOT_REASON
 	select OMAP_RAM_CONSOLE
+
+config MACH_ARCHOS
+	bool 
+	default n
+	select OMAP_PACKAGE_CBS
+	select OMAP_PACKAGE_CBL
+	select REGULATOR_FIXED_VOLTAGE
+	select OMAP_TPS6236X
+	select OMAP_REBOOT_REASON
+	select TWL6030_POWEROFF
+	select INPUT_TWL6030_PWRBUTTON
+	select TWL6030_GPADC
+	select KEYBOARD_GPIO
+
+config MACH_ARCHOS_A80S
+	bool "Archos A80S board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config MACH_ARCHOS_A80H
+	bool "Archos A80H board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config MACH_ARCHOS_A101S
+	bool "Archos A101S board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+	
+config MACH_ARCHOS_A101H
+	bool "Archos A101H board"
+	depends on ARCH_OMAP4
+	select MACH_ARCHOS
+
+config ARCHOS_FORCE_CONSOLE_UART3
+	bool "Force kernel's console to UART3"
+	depends on MACH_ARCHOS
+	depends on ARCH_OMAP4
+	default n
+	help
+	  Force /dev/console to be redirected to UART3,
+	  even when bootloader says it's UART1.
+	  It's needed for GPS prodtest.
+
+config ARCHOS_UART3_ON_DPDM
+	bool "Configure DPDM balls to UART3 mux mode"
+	depends on MACH_ARCHOS
+	depends on ARCH_OMAP4
+	default n
+
+config CMDLINE_DEFAULT
+	string "Kernel command line for Archos G9 NAND based devices"
+	depends on MACH_ARCHOS
+	default ""
 
 config OMAP3_EMU
 	bool "OMAP3 debugging peripherals"

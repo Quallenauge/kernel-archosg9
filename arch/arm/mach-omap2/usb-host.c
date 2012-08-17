@@ -851,8 +851,10 @@ static void usbhs_resume_work(struct work_struct *work)
 		omap_hwmod_disable_ioring_wakeup(usbhs_wake->oh_ohci);
 	}
 
-	if (pm_runtime_suspended(usbhs_wake->dev))
+	if (pm_runtime_suspended(usbhs_wake->dev)) {
 		pm_runtime_get_sync(usbhs_wake->dev);
+		pm_runtime_put_sync(usbhs_wake->dev);
+	}
 }
 
 void __init usbhs_init(const struct usbhs_omap_board_data *pdata)
@@ -870,6 +872,12 @@ void __init usbhs_init(const struct usbhs_omap_board_data *pdata)
 		ehci_data.regulator[i] = pdata->regulator[i];
 		ehci_data.transceiver_clk[i] = pdata->transceiver_clk[i];
 	}
+
+	ehci_data.platform_bus_suspend = pdata->platform_bus_suspend;
+	ehci_data.platform_bus_resume = pdata->platform_bus_resume;
+	ehci_data.platform_bus_enable = pdata->platform_bus_enable;
+	ehci_data.platform_bus_disable = pdata->platform_bus_disable;
+
 	ehci_data.phy_reset = pdata->phy_reset;
 	ohci_data.es2_compatibility = pdata->es2_compatibility;
 	ehci_data.usbhs_update_sar = &usbhs_update_sar;

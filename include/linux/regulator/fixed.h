@@ -46,6 +46,7 @@ struct fixed_voltage_config {
 	unsigned enable_high:1;
 	unsigned enabled_at_boot:1;
 	struct regulator_init_data *init_data;
+	void (*remux)(int gpio);
 };
 
 #endif

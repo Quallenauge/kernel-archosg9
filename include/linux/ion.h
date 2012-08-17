@@ -147,7 +147,6 @@ void ion_free(struct ion_client *client, struct ion_handle *handle);
 int ion_phys(struct ion_client *client, struct ion_handle *handle,
 	     ion_phys_addr_t *addr, size_t *len);
 
-
 /**
  * ion_phys_frm_dev - returns the physical address and len of a handle
  * @dev:	ion_dev
@@ -166,6 +165,10 @@ int ion_phys(struct ion_client *client, struct ion_handle *handle,
  */
 int ion_phys_frm_dev(struct ion_device *dev, struct ion_handle *handle,
 			ion_phys_addr_t *addr, size_t *len);
+
+
+int ion_handle_phys(struct ion_handle *handle,
+	     ion_phys_addr_t *addr, size_t *len);
 
 
 /**

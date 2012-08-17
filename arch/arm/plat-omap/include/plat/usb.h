@@ -46,6 +46,11 @@ struct usbhs_omap_board_data {
 	 * for low power mode entry
 	 */
 	struct clk			*transceiver_clk[OMAP3_HS_USB_PORTS];
+
+	void (* platform_bus_suspend)(void);
+	void (* platform_bus_resume)(void);
+	void (* platform_bus_enable)(void);
+	void (*	platform_bus_disable)(void);
 };
 
 struct ehci_hcd_omap_platform_data {
@@ -59,6 +64,10 @@ struct ehci_hcd_omap_platform_data {
 	 */
 	struct clk			*transceiver_clk[OMAP3_HS_USB_PORTS];
 	int				*usbhs_update_sar;
+	void (* platform_bus_suspend)(void);
+	void (* platform_bus_resume)(void);
+	void (* platform_bus_enable)(void);
+	void (*	platform_bus_disable)(void);
 };
 
 struct ohci_hcd_omap_platform_data {

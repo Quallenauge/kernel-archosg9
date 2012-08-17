@@ -19,24 +19,35 @@
 
 #include <linux/ion.h>
 
-#define OMAP4_RAM_SIZE (omap_total_ram_size())
-#define PHYS_ADDR_SMC_MEM  (omap_smc_addr())
-#define PHYS_ADDR_ION_HEAP_SECURE_INPUT_MEM  (omap_ion_heap_secure_input_addr())
-#define PHYS_ADDR_ION_HEAP_SECURE_OUTPUT_WFDHDCP_MEM  \
-			(omap_ion_heap_secure_output_wfdhdcp_addr())
-#define PHYS_ADDR_DUCATI_MEM	(omap_ducati_heap_addr())
-#define PHYS_ADDR_ION_HEAP_TILER_MEM	(omap_ion_heap_tiler_mem_addr())
-#define PHYS_ADDR_ION_HEAP_NONSECURE_TILER_MEM	\
-			(omap_ion_heap_nonsec_tiler_mem_addr())
+//#define OMAP4_RAM_SIZE (omap_total_ram_size())
+//#define PHYS_ADDR_SMC_MEM  (omap_smc_addr())
+//#define PHYS_ADDR_ION_HEAP_SECURE_INPUT_MEM  (omap_ion_heap_secure_input_addr())
+//#define PHYS_ADDR_ION_HEAP_SECURE_OUTPUT_WFDHDCP_MEM  \
+//			(omap_ion_heap_secure_output_wfdhdcp_addr())
+//#define PHYS_ADDR_DUCATI_MEM	(omap_ducati_heap_addr())
+//#define PHYS_ADDR_ION_HEAP_TILER_MEM	(omap_ion_heap_tiler_mem_addr())
+//#define PHYS_ADDR_ION_HEAP_NONSECURE_TILER_MEM	\
+//			(omap_ion_heap_nonsec_tiler_mem_addr())
+//
+//#define PHYS_ADDR_SMC_SIZE (omap_smc_size())
+//#define OMAP4_ION_HEAP_SECURE_INPUT_SIZE (omap_ion_heap_secure_input_size())
+//#define OMAP4_ION_HEAP_SECURE_OUTPUT_WFDHDCP_SIZE \
+//			(omap_ion_heap_secure_output_wfdhdcp_size())
+//#define PHYS_ADDR_DUCATI_SIZE (omap_ducati_heap_size())
+//#define OMAP4_ION_HEAP_TILER_SIZE (omap_ion_heap_tiler_mem_size())
+//#define OMAP4_ION_HEAP_NONSECURE_TILER_SIZE	\
+//			(omap_ion_heap_nonsec_tiler_mem_size())
 
-#define PHYS_ADDR_SMC_SIZE (omap_smc_size())
-#define OMAP4_ION_HEAP_SECURE_INPUT_SIZE (omap_ion_heap_secure_input_size())
-#define OMAP4_ION_HEAP_SECURE_OUTPUT_WFDHDCP_SIZE \
-			(omap_ion_heap_secure_output_wfdhdcp_size())
-#define PHYS_ADDR_DUCATI_SIZE (omap_ducati_heap_size())
-#define OMAP4_ION_HEAP_TILER_SIZE (omap_ion_heap_tiler_mem_size())
-#define OMAP4_ION_HEAP_NONSECURE_TILER_SIZE	\
-			(omap_ion_heap_nonsec_tiler_mem_size())
+#define OMAP4_ION_HEAP_SECURE_INPUT_SIZE	(SZ_1M * 90)
+#define OMAP4_ION_HEAP_TILER_SIZE		(SZ_128M - SZ_32M)
+#define OMAP4_ION_HEAP_NONSECURE_TILER_SIZE	SZ_32M
+
+#define PHYS_ADDR_SMC_SIZE	(SZ_1M * 3)
+#define PHYS_ADDR_SMC_MEM	(0x80000000 + SZ_1G - PHYS_ADDR_SMC_SIZE)
+#define PHYS_ADDR_DUCATI_SIZE	(SZ_1M * 105)
+#define PHYS_ADDR_DUCATI_MEM	(PHYS_ADDR_SMC_MEM - PHYS_ADDR_DUCATI_SIZE - \
+				OMAP4_ION_HEAP_SECURE_INPUT_SIZE)
+
 
 
 struct omap_ion_platform_data {
@@ -56,6 +67,7 @@ size_t omap_smc_size(void);
 size_t omap_ducati_heap_size(void);
 
 #ifdef CONFIG_ION_OMAP
+void omap_ion_set_platform_data(struct ion_platform_data *ion_heap_data);
 void omap_ion_init(void);
 void omap4_register_ion(void);
 

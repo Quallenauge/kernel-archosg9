@@ -29,7 +29,6 @@
 #include <linux/cpu.h>
 #include <linux/thermal_framework.h>
 #include <linux/platform_device.h>
-#include <linux/omap4_duty_cycle.h>
 
 #include <asm/system.h>
 #include <asm/smp_plat.h>
@@ -40,10 +39,6 @@
 #include <plat/common.h>
 
 #include <mach/hardware.h>
-
-#ifdef CONFIG_OMAP4_DPLL_CASCADING
-#include <mach/omap4-common.h>
-#endif
 
 #include "dvfs.h"
 
@@ -82,40 +77,9 @@ static unsigned int omap_getspeed(unsigned int cpu)
 	return rate;
 }
 
-static void omap_cpufreq_lpj_recalculate(unsigned int target_freq,
-					 unsigned int cur_freq)
-{
- #ifdef CONFIG_SMP
-	unsigned int i;
-
-	/*
-	 * Note that loops_per_jiffy is not updated on SMP systems in
-	 * cpufreq driver. So, update the per-CPU loops_per_jiffy value
-	 * on frequency transition. We need to update all dependent CPUs.
-	 */
-	for_each_possible_cpu(i) {
-		struct lpj_info *lpj = &per_cpu(lpj_ref, i);
-		if (!lpj->freq) {
-			lpj->ref = per_cpu(cpu_data, i).loops_per_jiffy;
-			lpj->freq = cur_freq;
-		}
-
-		per_cpu(cpu_data, i).loops_per_jiffy =
-			cpufreq_scale(lpj->ref, lpj->freq, target_freq);
-	}
-
-	/* And don't forget to adjust the global one */
-	if (!global_lpj_ref.freq) {
-		global_lpj_ref.ref = loops_per_jiffy;
-		global_lpj_ref.freq = cur_freq;
-	}
-	loops_per_jiffy = cpufreq_scale(global_lpj_ref.ref, global_lpj_ref.freq,
-					target_freq);
-#endif
-}
-
 static int omap_cpufreq_scale(unsigned int target_freq, unsigned int cur_freq)
 {
+	unsigned int i;
 	int ret;
 	struct cpufreq_freqs freqs;
 
@@ -142,15 +106,35 @@ static int omap_cpufreq_scale(unsigned int target_freq, unsigned int cur_freq)
 	pr_info("cpufreq-omap: transition: %u --> %u\n", freqs.old, freqs.new);
 #endif
 
-	if (target_freq > cur_freq)
-		omap_cpufreq_lpj_recalculate(freqs.new, freqs.old);
-
 	ret = omap_device_scale(mpu_dev, mpu_dev, freqs.new * 1000);
 
 	freqs.new = omap_getspeed(0);
 
-	if (target_freq < cur_freq)
-		omap_cpufreq_lpj_recalculate(freqs.new, freqs.old);
+#ifdef CONFIG_SMP
+	/*
+	 * Note that loops_per_jiffy is not updated on SMP systems in
+	 * cpufreq driver. So, update the per-CPU loops_per_jiffy value
+	 * on frequency transition. We need to update all dependent CPUs.
+	 */
+	for_each_possible_cpu(i) {
+		struct lpj_info *lpj = &per_cpu(lpj_ref, i);
+		if (!lpj->freq) {
+			lpj->ref = per_cpu(cpu_data, i).loops_per_jiffy;
+			lpj->freq = freqs.old;
+		}
+
+		per_cpu(cpu_data, i).loops_per_jiffy =
+			cpufreq_scale(lpj->ref, lpj->freq, freqs.new);
+	}
+
+	/* And don't forget to adjust the global one */
+	if (!global_lpj_ref.freq) {
+		global_lpj_ref.ref = loops_per_jiffy;
+		global_lpj_ref.freq = freqs.old;
+	}
+	loops_per_jiffy = cpufreq_scale(global_lpj_ref.ref, global_lpj_ref.freq,
+					freqs.new);
+#endif
 
 	/* notifiers */
 	for_each_online_cpu(freqs.cpu)
@@ -265,17 +249,9 @@ static int omap_target(struct cpufreq_policy *policy,
 
 	current_target_freq = freq_table[i].frequency;
 
-	if (!omap_cpufreq_suspended) {
-#ifdef CONFIG_OMAP4_DPLL_CASCADING
-		if (cpu_is_omap44xx() && target_freq > policy->min)
-			omap4_dpll_cascading_blocker_hold(mpu_dev);
-#endif
+	if (!omap_cpufreq_suspended)
 		ret = omap_cpufreq_scale(current_target_freq, policy->cur);
-#ifdef CONFIG_OMAP4_DPLL_CASCADING
-		if (cpu_is_omap44xx() && target_freq == policy->min)
-			omap4_dpll_cascading_blocker_release(mpu_dev);
-#endif
-	}
+
 
 	mutex_unlock(&omap_cpufreq_lock);
 
@@ -288,7 +264,7 @@ static inline void freq_table_free(void)
 		opp_free_cpufreq_table(mpu_dev, &freq_table);
 }
 
-#if defined(CONFIG_OMAP_THERMAL) || defined(CONFIG_OMAP4_DUTY_CYCLE)
+#ifdef CONFIG_THERMAL_FRAMEWORK
 void omap_thermal_step_freq_down(void)
 {
 	unsigned int cur;
@@ -366,33 +342,6 @@ static int cpufreq_apply_cooling(struct thermal_dev *dev,
 
 	return 0;
 }
-#endif
-
-#ifdef CONFIG_OMAP4_DUTY_CYCLE
-
-static struct duty_cycle_dev duty_dev = {
-	.cool_device = cpufreq_apply_cooling,
-};
-
-static int __init omap_duty_cooling_init(void)
-{
-	return duty_cooling_dev_register(&duty_dev);
-}
-
-static void __exit omap_duty_cooling_exit(void)
-{
-	duty_cooling_dev_unregister();
-}
-
-
-#else
-
-static int __init omap_duty_cooling_init(void) { return 0; }
-static void __exit omap_duty_cooling_exit(void) { }
-
-#endif
-
-#ifdef CONFIG_OMAP_THERMAL
 
 static struct thermal_dev_ops cpufreq_cooling_ops = {
 	.cool_device = cpufreq_apply_cooling,
@@ -455,6 +404,8 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 
 	for (i = 0; freq_table[i].frequency != CPUFREQ_TABLE_END; i++)
 		max_freq = max(freq_table[i].frequency, max_freq);
+	max_thermal = max_freq;
+	current_cooling_level = 0;
 
 	/*
 	 * On OMAP SMP configuartion, both processors share the voltage
@@ -468,6 +419,7 @@ static int __cpuinit omap_cpu_init(struct cpufreq_policy *policy)
 		cpumask_setall(policy->cpus);
 	}
 
+	omap_cpufreq_cooling_init();
 	/* FIXME: what's the actual transition time? */
 	policy->cpuinfo.transition_latency = 300 * 1000;
 
@@ -565,9 +517,6 @@ static int __init omap_cpufreq_init(void)
 	ret = cpufreq_register_driver(&omap_driver);
 	omap_cpufreq_ready = !ret;
 
-	max_thermal = max_freq;
-	current_cooling_level = 0;
-
 	if (!ret) {
 		int t;
 
@@ -579,15 +528,6 @@ static int __init omap_cpufreq_init(void)
 		if (t)
 			pr_warn("%s_init: platform_driver_register failed\n",
 				__func__);
-		ret = omap_cpufreq_cooling_init();
-
-		if (ret)
-			return ret;
-
-		ret = omap_duty_cooling_init();
-		if (ret)
-			pr_warn("%s: omap_duty_cooling_init failed\n",
-				__func__);
 	}
 
 	return ret;
@@ -596,7 +536,6 @@ static int __init omap_cpufreq_init(void)
 static void __exit omap_cpufreq_exit(void)
 {
 	omap_cpufreq_cooling_exit();
-	omap_duty_cooling_exit();
 	cpufreq_unregister_driver(&omap_driver);
 	platform_driver_unregister(&omap_cpufreq_platform_driver);
 	platform_device_unregister(&omap_cpufreq_device);

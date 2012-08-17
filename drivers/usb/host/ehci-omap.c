@@ -148,6 +148,7 @@ void omap_ehci_hw_phy_reset(const struct usb_hcd *hcd)
 	struct ehci_hcd_omap_platform_data  *pdata;
 
 	pdata = dev->platform_data;
+#ifndef CONFIG_MACH_ARCHOS
 
 	if (gpio_is_valid(pdata->reset_gpio_port[0])) {
 		gpio_set_value(pdata->reset_gpio_port[0], 0);
@@ -155,6 +156,12 @@ void omap_ehci_hw_phy_reset(const struct usb_hcd *hcd)
 		gpio_set_value(pdata->reset_gpio_port[0], 1);
 		mdelay(2);
 	}
+#else
+	if ((pdata->platform_bus_suspend) && (pdata->platform_bus_resume)) {
+		pdata->platform_bus_suspend();
+		pdata->platform_bus_resume();
+	}
+#endif
 
 	return;
 }
@@ -555,6 +562,8 @@ static int ehci_hcd_omap_probe(struct platform_device *pdev)
 	pm_runtime_get_sync(dev->parent);
 	*pdata->usbhs_update_sar = 1;
 
+	*pdata->usbhs_update_sar = 1;
+
 	/*
 	 * An undocumented "feature" in the OMAP3 EHCI controller,
 	 * causes suspended ports to be taken out of suspend when
@@ -676,6 +685,10 @@ static int ehci_omap_bus_suspend(struct usb_hcd *hcd)
 			OCP_INITIATOR_AGENT,
 			-1);
 
+#ifdef CONFIG_MACH_ARCHOS
+	if (pdata->platform_bus_suspend)
+		pdata->platform_bus_suspend();
+#endif
 	return ret;
 }
 
@@ -696,6 +709,11 @@ static int ehci_omap_bus_resume(struct usb_hcd *hcd)
 			clk_enable(clk);
 	}
 
+#ifdef CONFIG_MACH_ARCHOS
+	if (pdata->platform_bus_resume)
+		pdata->platform_bus_resume();
+#endif
+
 	omap_pm_set_min_bus_tput(dev,
 			OCP_INITIATOR_AGENT,
 			(200*1000*4));
@@ -708,12 +726,54 @@ static int ehci_omap_bus_resume(struct usb_hcd *hcd)
 	return ehci_bus_resume(hcd);
 }
 
+#if defined (CONFIG_PM) && defined(CONFIG_MACH_ARCHOS)
+static int ehci_hcd_omap_drv_suspend(struct device *dev)
+{
+       struct ehci_hcd_omap *omap = dev_get_drvdata(dev);
+       struct ehci_hcd_omap_platform_data *pdata = dev->platform_data;
+printk("ehci_hcd_omap_drv_suspend\n");
+
+
+       if (pdata && gpio_is_valid(pdata->reset_gpio_port[0])) {
+printk("ehci_hcd_omap_drv_suspend hold in reset\n");
+              // phy_suspend_forced = 1;
+               gpio_set_value(pdata->reset_gpio_port[0], 0);
+       }
+
+       return 0;
+}
+
+static int ehci_hcd_omap_drv_resume(struct device *dev)
+{
+       struct ehci_hcd_omap *omap = dev_get_drvdata(dev);
+       struct ehci_hcd_omap_platform_data *pdata = dev->platform_data;
+printk("ehci_hcd_omap_drv_resume\n");
+
+		if (pdata && gpio_is_valid(pdata->reset_gpio_port[0])) {
+		printk("ehci_hcd_omap_drv_suspend release reset\n");
+			   // phy_suspend_forced = 1;
+				gpio_set_value(pdata->reset_gpio_port[0], 1);
+		}
+       return 0;
+}
+#else
+#define ehci_hcd_omap_drv_resume NULL
+#define ehci_hcd_omap_drv_suspend NULL
+#endif
+
+static const struct dev_pm_ops omap_ehci_pmops = {
+       .suspend        = ehci_hcd_omap_drv_suspend,
+       .resume         = ehci_hcd_omap_drv_resume,
+};
+
+
 static struct platform_driver ehci_hcd_omap_driver = {
 	.probe			= ehci_hcd_omap_probe,
 	.remove			= ehci_hcd_omap_remove,
 	.shutdown		= ehci_hcd_omap_shutdown,
 	.driver = {
 		.name		= "ehci-omap",
+        .pm             = &omap_ehci_pmops,
 	}
 };
 
