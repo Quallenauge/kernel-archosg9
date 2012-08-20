@@ -202,16 +202,35 @@ static int archos_twl6030_phy_init(struct otg_transceiver *x)
 		regulator_enable(twl->usb3v3);
 		twl->asleep = 1;
 	}
-	hw_state = archos_twl6030_readb(twl, TWL6030_MODULE_ID0, STS_HW_CONDITIONS);
+//	Variant 1: Ignore hw_state (variant also found in HEAD)
+//	hw_state = archos_twl6030_readb(twl, TWL6030_MODULE_ID0, STS_HW_CONDITIONS);
+//
+//	if (!twl->phy_powered) {
+//		if (hw_state & STS_USB_ID)
+//			pdata->phy_power(twl->dev, 1, 1);
+//		else
+//			pdata->phy_power(twl->dev, 0, 1);
+//		twl->phy_powered = 1;
+//		pr_err("PHY ON\n");
+//	}
 
-	if (!twl->phy_powered) {
-		if (hw_state & STS_USB_ID)
+	if (twl->linkstat == USB_EVENT_ID)
 			pdata->phy_power(twl->dev, 1, 1);
 		else
 			pdata->phy_power(twl->dev, 0, 1);
-		twl->phy_powered = 1;
-		pr_err("PHY ON\n");
-	}
+
+// **************************************
+// Variant 2: Get the hw state within a workqueue
+//	schedule_delayed_work(&twl->work, 0);
+//	if (!twl->phy_powered) {
+//		if (hw_state & STS_USB_ID)
+//			pdata->phy_power(twl->dev, 1, 1);
+//		else
+//			pdata->phy_power(twl->dev, 0, 1);
+//		twl->phy_powered = 1;
+//		pr_err("PHY ON\n");
+//	}
+
 	return 0;
 }
 
