@@ -348,6 +348,7 @@ void __init omap_ipu_reserve_sdram_memblock(void)
 
 void __init omap_ipu_set_static_mempool(u32 start, u32 size)
 {
+	printk(KERN_ERR "omap_ipu_set_static_mempool(start=0x%x, size=0x%x)\n", start, size);
 	omap_ipu_phys_st_mempool_base = start;
 	omap_ipu_phys_st_mempool_size = size;
 }

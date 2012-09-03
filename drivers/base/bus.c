@@ -10,6 +10,8 @@
  *
  */
 
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/errno.h>
@@ -624,6 +626,7 @@ static DRIVER_ATTR(uevent, S_IWUSR, NULL, driver_uevent_store);
  */
 int bus_add_driver(struct device_driver *drv)
 {
+	printk(KERN_ERR "bus_add_driver(): Try to register driver: %s\n", drv->name);
 	struct bus_type *bus;
 	struct driver_private *priv;
 	int error = 0;

@@ -14,6 +14,9 @@
  *
  */
 
+#define CONFIG_PRINTK
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/file.h>
 #include <linux/fs.h>
@@ -31,7 +34,6 @@
 #include <linux/debugfs.h>
 
 #include "ion_priv.h"
-#define DEBUG
 
 /* this function should only be called while dev->lock is held */
 static void ion_buffer_add(struct ion_device *dev,
@@ -1246,12 +1248,15 @@ struct ion_device *ion_device_create(long (*custom_ioctl)
 				      unsigned int cmd,
 				      unsigned long arg))
 {
+	printk(KERN_ERR "ion_device_create()\n");
 	struct ion_device *idev;
 	int ret;
 
 	idev = kzalloc(sizeof(struct ion_device), GFP_KERNEL);
-	if (!idev)
+	if (!idev){
+		printk(KERN_ERR "No memory left for creating ion_device!\n");
 		return ERR_PTR(-ENOMEM);
+	}
 
 	idev->dev.minor = MISC_DYNAMIC_MINOR;
 	idev->dev.name = "ion";

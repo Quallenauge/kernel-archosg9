@@ -76,6 +76,7 @@ void omap_init_ram_size(void)
 
 	for (i = 0; i < meminfo.nr_banks; i++)
 		omap4_total_ram_size += meminfo.bank[i].size;
+	printk(KERN_ERR "Found %d memory banks with total size: %d\n", meminfo.nr_banks, omap4_total_ram_size);
 }
 
 phys_addr_t omap_total_ram_size(void)

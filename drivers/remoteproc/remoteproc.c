@@ -23,6 +23,8 @@
 
 #define pr_fmt(fmt)    "%s: " fmt, __func__
 
+#define DEBUG
+
 #include <linux/kernel.h>
 #include <linux/module.h>
 #include <linux/interrupt.h>
@@ -804,9 +806,15 @@ static int rproc_check_poolmem(struct rproc *rproc, u32 size, phys_addr_t pa)
 		return -EINVAL;
 	}
 
-	if (pa < pool->st_base || pa + size > pool->st_base + pool->st_size) {
-		pr_warn("section size does not fit within carveout memory\n");
+	if (pa < pool->st_base){
+		pr_warn("Base is not matching!");
+		pr_warn("section size does not fit within carveout memory pa=%p size=0x%x pool (pa=%p, size=0x%x)\n", pa, size, pool->st_base, pool->st_size);
 		return -ENOSPC;
+	}
+	if (pa + size > pool->st_base + pool->st_size) {
+			pr_warn("Size does not match!");
+			pr_warn("section size does not fit within carveout memory pa=%p size=0x%x pool (pa=%p, size=0x%x) pa+size=0x%x, st_base+pool->st_size=0x%x\n", pa, size, pool->st_base,pool->st_size, pa+size, pool->st_base + pool->st_size);
+			return -ENOSPC;
 	}
 
 	return 0;

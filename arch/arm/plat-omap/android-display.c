@@ -86,6 +86,7 @@ static void get_display_size(struct omap_dss_board_info *info,
 		goto done;
 
 	device = info->default_device;
+	printk(KERN_ERR "Default device: %d, dss_board_info_default: %d, num devices: %d\n", default_display, device, info->num_devices);
 	for (i = 0; i < info->num_devices; i++) {
 		if (!strcmp(default_display, info->devices[i]->name)) {
 			device = info->devices[i];
@@ -95,6 +96,8 @@ static void get_display_size(struct omap_dss_board_info *info,
 
 	if (!device)
 		goto done;
+
+	printk(KERN_ERR "Found device %s\n", device->name);
 
 	if (device->type == OMAP_DISPLAY_TYPE_HDMI &&
 	    hdmi_width && hdmi_height) {
@@ -259,8 +262,9 @@ void omap_android_display_setup(struct omap_dss_board_info *dss,
 
 	struct omap_android_display_data mem = {
 		.bpp = 4,
-		.width = 1920,
-		.height = 1080,
+		// Needed by archos 8" cpt display
+		.width = 1024,
+		.height = 768,
 	};
 
 	if (!sgx || !sgx->configs)
@@ -268,6 +272,8 @@ void omap_android_display_setup(struct omap_dss_board_info *dss,
 	else
 		p_sgx_config = &(sgx->configs[0]);
 
+
+	printk(KERN_ERR "DSS Config: %d\n", dss);
 	get_display_size(dss, &mem);
 	set_tiler1d_slot_size(dsscomp, &mem);
 	set_vram_sizes(p_sgx_config, fb, &mem);

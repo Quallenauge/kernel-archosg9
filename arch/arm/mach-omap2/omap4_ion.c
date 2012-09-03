@@ -130,6 +130,12 @@ void __init omap_ion_init(void)
 		omap4_ion_heap_tiler_mem_size =
 					 (ALIGN(omap4_ion_pdata.tiler2d_size +
 					 nonsecure, SZ_2M) - nonsecure);
+
+		pr_info("omap4_ion_pdata.tiler2d_size = 0x%x\n" \
+				"nonsecure = 0x%x\n",
+				omap4_ion_pdata.tiler2d_size,
+				nonsecure
+		);
 	}
 
 	/* carveout addresses */

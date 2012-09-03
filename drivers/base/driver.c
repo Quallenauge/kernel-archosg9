@@ -10,6 +10,8 @@
  *
  */
 
+#define DEBUG
+
 #include <linux/device.h>
 #include <linux/module.h>
 #include <linux/errno.h>
@@ -221,6 +223,7 @@ static void driver_remove_groups(struct device_driver *drv,
  */
 int driver_register(struct device_driver *drv)
 {
+	printk(KERN_ERR "driver_register(): Try to register driver: %s\n", drv->name);
 	int ret;
 	struct device_driver *other;
 

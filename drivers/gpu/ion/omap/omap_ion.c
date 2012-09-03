@@ -14,6 +14,9 @@
  *
  */
 
+#define CONFIG_PRINTK
+#define DEBUG
+
 #include <linux/err.h>
 #include <linux/ion.h>
 #include <linux/omap_ion.h>
@@ -83,6 +86,7 @@ long omap_ion_ioctl(struct ion_client *client, unsigned int cmd,
 
 int omap_ion_probe(struct platform_device *pdev)
 {
+	printk(KERN_ERR "enter omap_ion_probe()\n");
 	struct ion_platform_data *pdata = pdev->dev.platform_data;
 	int err;
 	int i;
@@ -92,7 +96,9 @@ int omap_ion_probe(struct platform_device *pdev)
 	heaps = kzalloc(sizeof(struct ion_heap *) * pdata->nr, GFP_KERNEL);
 
 	omap_ion_device = ion_device_create(omap_ion_ioctl);
+	printk(KERN_ERR "Created ion device at %d\n", omap_ion_device);
 	if (IS_ERR_OR_NULL(omap_ion_device)) {
+		printk(KERN_ERR "Error creating ion_device!\n");
 		kfree(heaps);
 		return PTR_ERR(omap_ion_device);
 	}
@@ -178,7 +184,7 @@ int omap_ion_share_fd_to_buffers(int fd, struct ion_buffer **buffers,
 
 #ifdef CONFIG_PVR_SGX
 	if (*num_handles == 2) {
-		PVRSRVExportFDToIONHandles(fd, &client, handles);
+		PVRSRVExportFDToIONHandles(fd, &client, handles, num_handles);
 	} else if (*num_handles == 1) {
 		handles[0] = PVRSRVExportFDToIONHandle(fd, &client);
 	} else {
