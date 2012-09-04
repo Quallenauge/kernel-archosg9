@@ -68,7 +68,7 @@
 #include <video/omap_hwc.h>
 
 extern struct ion_device *omap_ion_device;
-struct ion_client *gpsIONClient;
+extern struct ion_client *gpsIONClient;
 
 #endif
 
