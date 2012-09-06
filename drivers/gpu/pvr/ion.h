@@ -47,7 +47,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/omap_ion.h>
 #endif
 #if defined (SUPPORT_ION)
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "servicesext.h"
 #endif
 

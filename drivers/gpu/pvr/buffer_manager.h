@@ -44,7 +44,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _BUFFER_MANAGER_H_
 #define _BUFFER_MANAGER_H_
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "ra.h"
 #include "perproc.h"
 

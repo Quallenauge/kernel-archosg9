@@ -43,7 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define __PVR_DEBUG_H__
 
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 
 
 #if defined (__cplusplus)

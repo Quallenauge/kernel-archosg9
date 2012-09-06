@@ -43,7 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _HASH_H_
 #define _HASH_H_
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "osfunc.h"
 
 #if defined (__cplusplus)

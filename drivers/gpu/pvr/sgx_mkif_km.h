@@ -43,7 +43,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #if !defined (__SGX_MKIF_KM_H__)
 #define __SGX_MKIF_KM_H__
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "servicesint.h"
 #include "sgxapi_km.h"
 

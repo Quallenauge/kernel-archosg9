@@ -50,7 +50,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #define DEBUG		1
 #endif
 
-#include "../../video/omap2/omaplfb/img_defs.h"
+#include "img_defs.h"
 #include "services.h"
 #include "servicesint.h"
 #include "power.h"

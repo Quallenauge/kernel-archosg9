@@ -56,8 +56,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <linux/spinlock.h>
 #include <linux/string.h>			// strncpy, strlen
 #include <stdarg.h>
-#include "../../video/omap2/omaplfb/img_types.h"
-#include "../../video/omap2/omaplfb/servicesext.h"
+#include "img_types.h"
+#include "servicesext.h"
 #include "pvr_debug.h"
 #include "srvkm.h"
 #include "proc.h"

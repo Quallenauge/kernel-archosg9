@@ -30,8 +30,8 @@
 #include <mach/tiler.h>
 #include <linux/gcbv-iface.h>
 
-#include "img_defs.h"
-#include "servicesext.h"
+#include "../../../gpu/pvr/img_defs.h"
+#include "../../../gpu/pvr/servicesext.h"
 #include "kerneldisplay.h"
 #include "omaplfb.h"
 

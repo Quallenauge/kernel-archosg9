@@ -183,7 +183,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 extern "C" {
 #endif
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "hash.h"
 #include "resman.h"
 

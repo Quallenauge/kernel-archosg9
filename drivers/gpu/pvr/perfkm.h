@@ -41,7 +41,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _PERFKM_H_
 #define _PERFKM_H_
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 
 /*
  * Note, WDDM needs to perform initialisation and deinitialisation

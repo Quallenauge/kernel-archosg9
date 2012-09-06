@@ -52,7 +52,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <asm/page.h>
 #include <asm/pgtable.h>
 
-#include "../../video/omap2/omaplfb/img_defs.h"
+#include "img_defs.h"
 #include "pvr_debug.h"
 #include "mutils.h"
 

@@ -46,7 +46,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #if defined(PVRSRV_DEBUG_OS_MEMORY)
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "services_headers.h"
 
 #if defined (__cplusplus)

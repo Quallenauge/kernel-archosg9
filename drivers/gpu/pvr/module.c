@@ -109,7 +109,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #include <asm/uaccess.h>
 #endif
 
-#include "../../video/omap2/omaplfb/img_defs.h"
+#include "img_defs.h"
 #include "services.h"
 #include "kerneldisplay.h"
 #include "kernelbuffer.h"

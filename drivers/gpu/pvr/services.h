@@ -47,8 +47,8 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 extern "C" {
 #endif
 
-#include "../../video/omap2/omaplfb/img_defs.h"
-#include "../../video/omap2/omaplfb/servicesext.h"
+#include "img_defs.h"
+#include "servicesext.h"
 #include "pdumpdefs.h"
 
 

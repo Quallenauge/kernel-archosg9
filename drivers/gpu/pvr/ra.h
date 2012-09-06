@@ -42,7 +42,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 #ifndef _RA_H_
 #define _RA_H_
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 #include "hash.h"
 #include "osfunc.h"
 

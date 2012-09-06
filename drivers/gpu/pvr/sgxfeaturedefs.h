@@ -267,7 +267,7 @@ must be defined when SGX_FEATURE_MP is defined
 #define SUPPORT_SGX_PRIORITY_SCHEDULING
 #endif
 
-#include "../../video/omap2/omaplfb/img_types.h"
+#include "img_types.h"
 
 /******************************************************************************
  End of file (sgxfeaturedefs.h)

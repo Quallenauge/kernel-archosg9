@@ -45,7 +45,7 @@ CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 #include <stddef.h>
 
-#include "../../video/omap2/omaplfb/img_defs.h"
+#include "img_defs.h"
 #include "services.h"
 #include "pvr_bridge_km.h"
 #include "pvr_debug.h"
