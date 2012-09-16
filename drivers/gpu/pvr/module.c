@@ -192,8 +192,7 @@ module_param(sgx_dvfs_active_dc_inc_wait, uint, 0644);
 #include "ion.h"
 extern void omap_ion_register_pvr_export(void *);
 extern struct ion_device *omap_ion_device;
-struct ion_client *gpsIONClient;
-EXPORT_SYMBOL(gpsIONClient);
+extern struct ion_client *gpsIONClient;
 #endif /* defined(CONFIG_ION_OMAP) */
 
 /* PRQA S 3207 2 */ /* ignore 'not used' warning */

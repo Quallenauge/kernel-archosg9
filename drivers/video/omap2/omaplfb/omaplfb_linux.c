@@ -24,6 +24,8 @@
  *
  ******************************************************************************/
 
+#define DEBUG
+
 #include <linux/version.h>
 
 #if (LINUX_VERSION_CODE < KERNEL_VERSION(2,6,38))
@@ -128,80 +130,96 @@ static struct sgx_omaplfb_platform_data *gplatdata;
 
 void *OMAPLFBAllocKernelMem(unsigned long ulSize)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	return kmalloc(ulSize, GFP_KERNEL);
 }
 
 void OMAPLFBFreeKernelMem(void *pvMem)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	kfree(pvMem);
 }
 
 void OMAPLFBCreateSwapChainLockInit(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	mutex_init(&psDevInfo->sCreateSwapChainMutex);
 }
 
 void OMAPLFBCreateSwapChainLockDeInit(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	mutex_destroy(&psDevInfo->sCreateSwapChainMutex);
 }
 
 void OMAPLFBCreateSwapChainLock(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	mutex_lock(&psDevInfo->sCreateSwapChainMutex);
 }
 
 void OMAPLFBCreateSwapChainUnLock(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	mutex_unlock(&psDevInfo->sCreateSwapChainMutex);
 }
 
 void OMAPLFBAtomicBoolInit(OMAPLFB_ATOMIC_BOOL *psAtomic, OMAPLFB_BOOL bVal)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	atomic_set(psAtomic, (int)bVal);
 }
 
 void OMAPLFBAtomicBoolDeInit(OMAPLFB_ATOMIC_BOOL *psAtomic)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 }
 
 void OMAPLFBAtomicBoolSet(OMAPLFB_ATOMIC_BOOL *psAtomic, OMAPLFB_BOOL bVal)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	atomic_set(psAtomic, (int)bVal);
 }
 
 OMAPLFB_BOOL OMAPLFBAtomicBoolRead(OMAPLFB_ATOMIC_BOOL *psAtomic)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	return (OMAPLFB_BOOL)atomic_read(psAtomic);
 }
 
 void OMAPLFBAtomicIntInit(OMAPLFB_ATOMIC_INT *psAtomic, int iVal)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	atomic_set(psAtomic, iVal);
 }
 
 void OMAPLFBAtomicIntDeInit(OMAPLFB_ATOMIC_INT *psAtomic)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 }
 
 void OMAPLFBAtomicIntSet(OMAPLFB_ATOMIC_INT *psAtomic, int iVal)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	atomic_set(psAtomic, iVal);
 }
 
 int OMAPLFBAtomicIntRead(OMAPLFB_ATOMIC_INT *psAtomic)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	return atomic_read(psAtomic);
 }
 
 void OMAPLFBAtomicIntInc(OMAPLFB_ATOMIC_INT *psAtomic)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	atomic_inc(psAtomic);
 }
 
 #if !defined(CONFIG_OMAPLFB)
 OMAPLFB_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE *ppfnFuncTable)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	if(strcmp("PVRGetDisplayClassJTable", szFunctionName) != 0)
 	{
 		return (OMAPLFB_ERROR_INVALID_PARAMS);
@@ -216,6 +234,7 @@ OMAPLFB_ERROR OMAPLFBGetLibFuncAddr (char *szFunctionName, PFN_DC_GET_PVRJTABLE 
 
 void OMAPLFBQueueBufferForSwap(OMAPLFB_SWAPCHAIN *psSwapChain, OMAPLFB_BUFFER *psBuffer)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	int res = queue_work(psSwapChain->psWorkQueue, &psBuffer->sWork);
 
 	if (res == 0)
@@ -226,6 +245,7 @@ void OMAPLFBQueueBufferForSwap(OMAPLFB_SWAPCHAIN *psSwapChain, OMAPLFB_BUFFER *p
 
 static void WorkQueueHandler(struct work_struct *psWork)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_BUFFER *psBuffer = container_of(psWork, OMAPLFB_BUFFER, sWork);
 
 	OMAPLFBSwapHandler(psBuffer);
@@ -233,6 +253,7 @@ static void WorkQueueHandler(struct work_struct *psWork)
 
 OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 #if (LINUX_VERSION_CODE >= KERNEL_VERSION(2,6,37))
 	
 	psSwapChain->psWorkQueue = alloc_ordered_workqueue(DEVNAME, WQ_FREEZABLE | WQ_MEM_RECLAIM);
@@ -256,11 +277,13 @@ OMAPLFB_ERROR OMAPLFBCreateSwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 
 void OMAPLFBInitBufferForSwap(OMAPLFB_BUFFER *psBuffer)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	INIT_WORK(&psBuffer->sWork, WorkQueueHandler);
 }
 
 void OMAPLFBDestroySwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	destroy_workqueue(psSwapChain->psWorkQueue);
 }
 
@@ -272,6 +295,7 @@ void OMAPLFBDestroySwapQueue(OMAPLFB_SWAPCHAIN *psSwapChain)
 
 void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct fb_var_screeninfo sFBVar;
 	int res;
 	unsigned long ulYResVirtual;
@@ -358,6 +382,7 @@ void OMAPLFBFlip(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_BUFFER *psBuffer)
 #if !defined(PVR_OMAPLFB_DRM_FB) || defined(DEBUG)
 static OMAPLFB_BOOL OMAPLFBValidUpdateMode(enum OMAP_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	switch (eMode)
 	{
 		case OMAP_UPDATE_MODE_AUTO:
@@ -373,6 +398,7 @@ static OMAPLFB_BOOL OMAPLFBValidUpdateMode(enum OMAP_UPDATE_MODE eMode)
 
 static OMAPLFB_UPDATE_MODE OMAPLFBFromUpdateMode(enum OMAP_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	switch (eMode)
 	{
 		case OMAP_UPDATE_MODE_AUTO:
@@ -391,6 +417,7 @@ static OMAPLFB_UPDATE_MODE OMAPLFBFromUpdateMode(enum OMAP_UPDATE_MODE eMode)
 
 static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	switch(eMode)
 	{
 		case OMAPLFB_UPDATE_MODE_AUTO:
@@ -406,6 +433,7 @@ static OMAPLFB_BOOL OMAPLFBValidateUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 
 static enum OMAP_UPDATE_MODE OMAPLFBToUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	switch(eMode)
 	{
 		case OMAPLFB_UPDATE_MODE_AUTO:
@@ -424,6 +452,7 @@ static enum OMAP_UPDATE_MODE OMAPLFBToUpdateMode(OMAPLFB_UPDATE_MODE eMode)
 #if defined(DEBUG)
 static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	switch(eMode)
 	{
 		case OMAPLFB_UPDATE_MODE_AUTO:
@@ -443,6 +472,7 @@ static const char *OMAPLFBUpdateModeToString(OMAPLFB_UPDATE_MODE eMode)
 
 static const char *OMAPLFBDSSUpdateModeToString(enum OMAP_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	if (!OMAPLFBValidUpdateMode(eMode))
 	{
 		return "Unknown Update Mode";
@@ -453,6 +483,7 @@ static const char *OMAPLFBDSSUpdateModeToString(enum OMAP_UPDATE_MODE eMode)
 
 void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 	unsigned uConnectors;
@@ -494,6 +525,7 @@ void OMAPLFBPrintInfo(OMAPLFB_DEVINFO *psDevInfo)
 #if defined(PVR_OMAPLFB_DRM_FB)
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct drm_connector *psConnector;
 	OMAPLFB_UPDATE_MODE eMode = OMAPLFB_UPDATE_MODE_UNDEFINED;
 
@@ -529,6 +561,7 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct drm_connector *psConnector;
 	enum OMAP_UPDATE_MODE eDSSMode;
 	OMAPLFB_BOOL bSuccess = OMAPLFB_FALSE;
@@ -583,6 +616,7 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	enum OMAP_UPDATE_MODE eMode;
 
 	omapfb_get_update_mode(psDevInfo->psLINFBInfo, &eMode);
@@ -597,6 +631,7 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	enum OMAP_UPDATE_MODE eUpdateMode;
 	int res;
 
@@ -620,6 +655,7 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 
@@ -653,6 +689,7 @@ OMAPLFB_UPDATE_MODE OMAPLFBGetUpdateMode(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MODE eMode)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct omap_dss_device *psDSSDev = fb2display(psDevInfo->psLINFBInfo);
 	OMAP_DSS_DRIVER(psDSSDrv, psDSSDev);
 	enum OMAP_UPDATE_MODE eUpdateMode;
@@ -685,6 +722,7 @@ OMAPLFB_BOOL OMAPLFBSetUpdateMode(OMAPLFB_DEVINFO *psDevInfo, OMAPLFB_UPDATE_MOD
 
 OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 
@@ -715,6 +753,7 @@ OMAPLFB_BOOL OMAPLFBWaitForVSync(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 #if defined(PVR_OMAPLFB_DRM_FB)
 	struct drm_connector *psConnector;
 
@@ -749,6 +788,7 @@ OMAPLFB_BOOL OMAPLFBManualSync(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_BOOL OMAPLFBCheckModeAndSync(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_UPDATE_MODE eMode = OMAPLFBGetUpdateMode(psDevInfo);
 
 	switch(eMode)
@@ -766,6 +806,7 @@ OMAPLFB_BOOL OMAPLFBCheckModeAndSync(OMAPLFB_DEVINFO *psDevInfo)
 static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
                              unsigned long event, void *data)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_DEVINFO *psDevInfo;
 	struct fb_event *psFBEvent = (struct fb_event *)data;
 	struct fb_info *psFBInfo = psFBEvent->info;
@@ -810,6 +851,7 @@ static int OMAPLFBFrameBufferEvents(struct notifier_block *psNotif,
 
 OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	int res;
 
 	OMAPLFB_CONSOLE_LOCK();
@@ -829,6 +871,7 @@ OMAPLFB_ERROR OMAPLFBUnblankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 
 static void OMAPLFBBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_CONSOLE_LOCK();
 	fb_blank(psDevInfo->psLINFBInfo, 1);
 	OMAPLFB_CONSOLE_UNLOCK();
@@ -836,6 +879,7 @@ static void OMAPLFBBlankDisplay(OMAPLFB_DEVINFO *psDevInfo)
 
 static void OMAPLFBEarlySuspendHandler(struct early_suspend *h)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	unsigned uiMaxFBDevIDPlusOne = OMAPLFBMaxFBDevIDPlusOne();
 	unsigned i;
 
@@ -853,6 +897,7 @@ static void OMAPLFBEarlySuspendHandler(struct early_suspend *h)
 
 static void OMAPLFBEarlyResumeHandler(struct early_suspend *h)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	unsigned uiMaxFBDevIDPlusOne = OMAPLFBMaxFBDevIDPlusOne();
 	unsigned i;
 
@@ -872,6 +917,7 @@ static void OMAPLFBEarlyResumeHandler(struct early_suspend *h)
 
 OMAPLFB_ERROR OMAPLFBEnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	int                res;
 	OMAPLFB_ERROR         eError;
 
@@ -912,6 +958,7 @@ OMAPLFB_ERROR OMAPLFBEnableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 
 OMAPLFB_ERROR OMAPLFBDisableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	int res;
 
 #ifdef CONFIG_HAS_EARLYSUSPEND
@@ -935,6 +982,7 @@ OMAPLFB_ERROR OMAPLFBDisableLFBEventNotification(OMAPLFB_DEVINFO *psDevInfo)
 #if defined(SUPPORT_DRI_DRM) && defined(PVR_DISPLAY_CONTROLLER_DRM_IOCTL)
 static OMAPLFB_DEVINFO *OMAPLFBPVRDevIDToDevInfo(unsigned uiPVRDevID)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	unsigned uiMaxFBDevIDPlusOne = OMAPLFBMaxFBDevIDPlusOne();
 	unsigned i;
 
@@ -956,6 +1004,7 @@ static OMAPLFB_DEVINFO *OMAPLFBPVRDevIDToDevInfo(unsigned uiPVRDevID)
 
 int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Ioctl)(struct drm_device unref__ *dev, void *arg, struct drm_file unref__ *pFile)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	uint32_t *puiArgs;
 	uint32_t uiCmd;
 	unsigned uiPVRDevID;
@@ -1084,11 +1133,13 @@ int PVR_DRM_MAKENAME(DISPLAY_CONTROLLER, _Ioctl)(struct drm_device unref__ *dev,
 #if defined(SUPPORT_DRI_DRM)
 struct sgx_omaplfb_config *GetFBPlatConfig(int fbix)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	return NULL;
 }
 #else
 struct sgx_omaplfb_config *GetFBPlatConfig(int fbix)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	if (fbix >= gplatdata->num_configs)
 	{
 		WARN(1, "Invalid FB device index");
@@ -1099,6 +1150,7 @@ struct sgx_omaplfb_config *GetFBPlatConfig(int fbix)
 
 static int omaplfb_probe(struct platform_device *pdev)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct omaplfb_device *odev = kzalloc(sizeof(*odev), GFP_KERNEL);
 
 	if (!odev)
@@ -1128,6 +1180,7 @@ static int omaplfb_probe(struct platform_device *pdev)
 
 static int omaplfb_remove(struct platform_device *pdev)
 {
+	//printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct omaplfb_device *odev;
 
 	odev = platform_get_drvdata(pdev);

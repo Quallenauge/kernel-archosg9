@@ -439,6 +439,7 @@ static int omap_rproc_pm_init(struct rproc *rproc, u64 susp_addr)
 
 static inline int omap_rproc_start(struct rproc *rproc, u64 bootaddr)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct device *dev = rproc->dev;
 	struct platform_device *pdev = to_platform_device(dev);
 	struct omap_rproc_pdata *pdata = dev->platform_data;

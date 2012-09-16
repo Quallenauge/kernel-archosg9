@@ -18,6 +18,8 @@
  * 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
  */
 
+#define DEBUG
+
 #include <linux/version.h>
 #include <linux/kernel.h>
 #include <linux/console.h>
@@ -64,6 +66,7 @@ static struct bventry gsBvInterface;
 static void print_bvparams(struct bvbltparams *bltparams,
                            unsigned int pSrc1DescInfo, unsigned int pSrc2DescInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct bvphysdesc *physdesc = NULL;
 	if (bltparams->flags & BVFLAG_BLEND)
 	{
@@ -119,6 +122,7 @@ static void print_bvparams(struct bvbltparams *bltparams,
 
 void OMAPLFBGetBltFBsBvHndl(OMAPLFB_FBINFO *psPVRFBInfo, IMG_UINTPTR_T *ppPhysAddr)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	if (++psPVRFBInfo->iBltFBsIdx >= OMAPLFB_NUM_BLT_FBS)
 	{
 		psPVRFBInfo->iBltFBsIdx = 0;
@@ -128,6 +132,7 @@ void OMAPLFBGetBltFBsBvHndl(OMAPLFB_FBINFO *psPVRFBInfo, IMG_UINTPTR_T *ppPhysAd
 
 static OMAPLFB_ERROR InitBltFBsCommon(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
 	IMG_INT n = OMAPLFB_NUM_BLT_FBS;
 
@@ -161,6 +166,7 @@ static OMAPLFB_ERROR InitBltFBsCommon(OMAPLFB_DEVINFO *psDevInfo)
  */
 static OMAPLFB_ERROR InitBltFBsVram(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
 	IMG_UINT uiBltFBSize = psDevInfo->sFBInfo.ulHeight * psDevInfo->psLINFBInfo->fix.line_length;
 	IMG_UINT uiNumPages = uiBltFBSize >> PAGE_SHIFT;
@@ -245,6 +251,7 @@ static OMAPLFB_ERROR InitBltFBsVram(OMAPLFB_DEVINFO *psDevInfo)
 
 static PVRSRV_ERROR InitBltFBsMapTiler2D(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
 	struct fb_info *psLINFBInfo = psDevInfo->psLINFBInfo;
 	struct bvbuffdesc *pBvDesc;
@@ -324,6 +331,7 @@ static PVRSRV_ERROR InitBltFBsMapTiler2D(OMAPLFB_DEVINFO *psDevInfo)
  */
 static OMAPLFB_ERROR InitBltFBsTiler2D(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	/*
 	 * Pick up the calculated bytes per pixel from the deduced
 	 * OMAPLFB_FBINFO, get the rest of the display parameters from the
@@ -374,6 +382,7 @@ static OMAPLFB_ERROR InitBltFBsTiler2D(OMAPLFB_DEVINFO *psDevInfo)
 
 static struct bvbuffdesc *GetBvDescriptor(OMAPLFB_DEVINFO *psDevInfo, PDC_MEM_INFO *ppsMemInfos, IMG_UINT32 ui32Idx, IMG_UINT32 ui32NumMemInfos)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct bvbuffdesc *pBvDesc;
 	if (!meminfo_idx_valid(ui32Idx, ui32NumMemInfos)) {
 		WARN(1, "%s: index out of range\n", __func__);
@@ -387,6 +396,7 @@ static struct bvbuffdesc *GetBvDescriptor(OMAPLFB_DEVINFO *psDevInfo, PDC_MEM_IN
 
 static void OMAPLFBSetNV12Params(struct bvsurfgeom *geom, struct bvbuffdesc *desc)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	if (geom->format != OCDFMT_NV12)
 		return;
 
@@ -396,6 +406,7 @@ static void OMAPLFBSetNV12Params(struct bvsurfgeom *geom, struct bvbuffdesc *des
 
 void OMAPLFBDoBlits(OMAPLFB_DEVINFO *psDevInfo, PDC_MEM_INFO *ppsMemInfos, struct omap_hwc_blit_data *blit_data, IMG_UINT32 ui32NumMemInfos)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct rgz_blt_entry *entry_list;
 	struct bventry *bv_entry = &gsBvInterface;
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
@@ -529,11 +540,13 @@ void OMAPLFBDoBlits(OMAPLFB_DEVINFO *psDevInfo, PDC_MEM_INFO *ppsMemInfos, struc
 
 OMAPLFB_ERROR OMAPLFBInitBltFBs(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	return (OMAPLFB_BLT_FBS_VRAM) ? InitBltFBsVram(psDevInfo) : InitBltFBsTiler2D(psDevInfo);
 }
 
 void OMAPLFBDeInitBltFBs(OMAPLFB_DEVINFO *psDevInfo)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 	struct bventry *bv_entry = &gsBvInterface;
 	OMAPLFB_FBINFO *psPVRFBInfo = &psDevInfo->sFBInfo;
 	struct bvbuffdesc *pBufDesc;
@@ -577,6 +590,7 @@ void OMAPLFBDeInitBltFBs(OMAPLFB_DEVINFO *psDevInfo)
 
 IMG_BOOL OMAPLFBInitBlt(void)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
 #if defined(CONFIG_GCBV)
 	/* Get the GC2D Bltsville implementation */
 	gcbv_init(&gsBvInterface);

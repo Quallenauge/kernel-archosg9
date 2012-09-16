@@ -889,6 +889,9 @@ static void omapfb_calc_addr(const struct omapfb_info *ofbi,
 			     const struct fb_fix_screeninfo *fix,
 			     int rotation, u32 *paddr, void __iomem **vaddr)
 {
+	printk(KERN_DEBUG"%s:%i\n", __func__, __LINE__);
+	dump_stack();
+
 	u32 data_start_p;
 	void __iomem *data_start_v;
 	int offset;
@@ -900,6 +903,8 @@ static void omapfb_calc_addr(const struct omapfb_info *ofbi,
 		data_start_p = omapfb_get_region_paddr(ofbi);
 		data_start_v = omapfb_get_region_vaddr(ofbi);
 	}
+	printk(KERN_DEBUG"data_start_v=0x%x", data_start_v);
+	printk(KERN_DEBUG"rotation_type=%d", ofbi->rotation_type);
 
 	if (ofbi->rotation_type == OMAP_DSS_ROT_VRFB)
 		offset = calc_rotation_offset_vrfb(var, fix, rotation);
