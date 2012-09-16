@@ -367,7 +367,8 @@ obj-$(CONFIG_MACH_ARCHOS)		+= archos-fixup.o \
 					   archos-battery.o \
 					   archos-leds.o \
 					   archos-memory.o \
-					   archos-die_id.o
+					   archos-die_id.o \
+					   board-44xx-identity.o
 
 obj-$(CONFIG_MACH_OMAP3517EVM)		+= board-am3517evm.o \
 					   omap_phy_internal.o \

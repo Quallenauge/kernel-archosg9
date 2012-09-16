@@ -82,6 +82,9 @@
 #include <plat/remoteproc.h>
 #include <linux/memblock.h>
 
+#include <plat/omap_apps_brd_id.h>
+#include <plat/cpu.h>
+
 #include <plat/android-display.h>
 
 static struct mma8453q_pdata board_mma8453q_pdata;
@@ -958,10 +961,10 @@ static __init int archos_hdmi_init(void)
 	return 0;
 }
 
-static struct omap_dss_device board_lcd_device;
+extern struct omap_dss_device cpt_xga_8_dss_device;
 
 static struct omap_dss_device *board_dss_devices[] = {
-	&board_lcd_device,
+	&cpt_xga_8_dss_device,
 #ifdef CONFIG_OMAP4_DSS_HDMI
 	&archos_4430_hdmi_device,
 #endif /* CONFIG_OMAP4_DSS_HDMI */
@@ -1609,8 +1612,8 @@ static void __init board_buttons_init(void)
 
 static void omap_board_display_init(void)
 {
-	if (panel_cpt_xga_8_init(&board_lcd_device) == 0)
-		board_dss_data.default_device = &board_lcd_device;
+	if (panel_cpt_xga_8_init(&cpt_xga_8_dss_device) == 0)
+		board_dss_data.default_device = &cpt_xga_8_dss_device;
 
 	archos_hdmi_init();
 
@@ -1651,6 +1654,8 @@ static void __init board_init(void)
 	if (omap_rev() == OMAP4430_REV_ES1_0)
 		package = OMAP_PACKAGE_CBL;
 	omap4_mux_init(board_mux, NULL, package);
+	omap_init_board_version(OMAP4_BLAZE);
+	omap4_create_board_props();
 
 	archos_memory_init();
 
@@ -1662,7 +1667,7 @@ static void __init board_init(void)
 	archos_audio_twl6040_init(&twl6040_codec);
 	archos_accel_mma8453q_init(&board_mma8453q_pdata);
 	archos_compass_init(&board_akm8975_pdata);
-	archos_battery_twl4030_bci_init(&board_bci_data);
+	archos_battery_twl4030_bci_init (&board_bci_data);
 
 	omap4_leds_init();
 
@@ -1716,6 +1721,7 @@ static void __init board_map_io(void)
 
 static struct sgx_omaplfb_config omaplfb_config_config_cpt_xga8_wuxga[OMAPLFB_NUM_DEV] = {
 	{
+//	.tiler2d_buffers = 2,
 	.vram_buffers = 2,
 	.swap_chain_length = 2,
 	}
@@ -1736,8 +1742,8 @@ static struct dsscomp_platform_data dsscomp_config_cpt_xga8_wuxga = {
 
 static void tablet_android_display_setup(struct omap_ion_platform_data *ion)
 {
-	panel_cpt_xga_8_preinit(&board_lcd_device);
-	board_dss_data.default_device = &board_lcd_device;
+//	panel_cpt_xga_8_preinit(&cpt_xga_8_dss_device);
+	board_dss_data.default_device = &cpt_xga_8_dss_device;
 
 	omap_android_display_setup(&board_dss_data,
 				   &dsscomp_config_cpt_xga8_wuxga,

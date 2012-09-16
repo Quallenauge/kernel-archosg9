@@ -286,10 +286,6 @@ struct omap_dss_device cpt_xga_8_dss_device = {
 	},
 };
 
-void panel_cpt_xga_8_preinit(struct omap_dss_device *disp_data){
-	*disp_data = cpt_xga_8_dss_device;
-}
-
 int __init panel_cpt_xga_8_init(struct omap_dss_device *disp_data)
 {
 	const struct archos_display_config *disp_cfg;

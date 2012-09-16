@@ -53,6 +53,8 @@ u32 wakeup_timer_seconds;
 u32 wakeup_timer_milliseconds;
 u32 omap4_device_off_counter = 0;
 
+EXPORT_SYMBOL(wakeup_timer_seconds);
+
 #ifdef CONFIG_PM_ADVANCED_DEBUG
 static u32 saved_reg_num;
 static u32 saved_reg_num_used;

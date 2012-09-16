@@ -627,7 +627,6 @@ extern void archos_power_off(void);
 extern int __init panel_boe_wsvga_10_init(struct omap_dss_device *);
 extern int __init panel_lg_wvga_7_init(struct omap_dss_device *);
 extern int __init panel_a35_init(struct omap_dss_device *);
-extern void  panel_cpt_xga_8_preinit(struct omap_dss_device *);
 extern int __init panel_cpt_xga_8_init(struct omap_dss_device *);
 extern int __init panel_auo_wxga_10_init(struct omap_dss_device *);
 extern int __init panel_claa_wsvga_7_init(struct omap_dss_device *);
@@ -649,6 +648,7 @@ extern int __init archos_camera_ov7675_init(void);
 extern void __init archos_reserve(void);
 extern void __init board_memory_prepare(void);
 extern int __init archos_memory_init(void);
+extern void __init omap4_create_board_props(void);
 
 //extern int __init archos_leds_init(void);
 

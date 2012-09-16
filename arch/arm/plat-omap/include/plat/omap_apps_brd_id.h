@@ -42,6 +42,8 @@
 #define OMAP4_TABLET_2_1_1_ID	7
 #define OMAP4_MAX_ID	(OMAP4_TABLET_2_1_1_ID + 1)
 
+#define OMAP4_ARCHOS	300000
+
 int omap_get_board_version(void);
 int omap_get_board_id(void);
 int omap_init_board_version(int forced_rev);
