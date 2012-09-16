@@ -469,6 +469,7 @@ unsigned int twl6030_get_usb_max_power(struct otg_transceiver *x)
 
 	return twl->usb_cinlimit_mA;
 }
+EXPORT_SYMBOL(twl6030_get_usb_max_power);
 
 static void otg_set_vbus_work(struct work_struct *data)
 {
